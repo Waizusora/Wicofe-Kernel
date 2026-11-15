@@ -235,16 +235,20 @@ The architecture backends now contain minimal Limine entry trampolines:
 - AArch64 `_start`: masks all interrupt classes and calls
   `wicofe_bootstrap` using the Limine-provided stack and AAPCS64.
 
-The shared Rust entry validates the base-revision marker and checks that the
-memory-map, HHDM, and executable-address response pointers are non-null.
-Missing module and framebuffer responses are not treated as fatal at this
-stage because those features are optional to the minimum bootstrap.
+The shared Rust entry checks the base-revision marker and passes the required
+memory-map, HHDM, and executable-address responses to the normalized boot
+information consumer. A missing module response is treated as an empty module
+list; framebuffer decoding remains deferred.
 
-This is intentionally a fail-stop scaffold: after the pointer-presence gate,
-the kernel spins without dereferencing response data. It does not yet install
-an IDT/VBAR, replace page tables, copy boot metadata, initialize PMM/VMM, or
-emit diagnostics. The entry trampolines are compiled only for
-`target_os = "none"`.
+The entry obtains `__kernel_start` and `__kernel_end` from the linker and uses
+fixed-capacity early buffers (256 memory-map entries and 64 modules). It
+validates the response data and retains the resulting borrowed `BootInfo`
+view while fail-stopping. The static buffers are single-entry bootstrap
+storage; they are not a general allocator. A malformed or unsupported handoff
+also fail-stops. The entry still has no serial/firmware diagnostic output and
+does not install an IDT/VBAR, replace page tables, copy module metadata,
+reserve ranges in a PMM, or reclaim bootloader memory. The entry trampolines
+are compiled only for `target_os = "none"`.
 
 The crate remains an `rlib`; there is no final kernel ELF target, panic
 handler, final Cargo linker integration, or QEMU boot test yet. Therefore
@@ -272,9 +276,9 @@ path/string metadata, install mappings, reserve physical ranges, reclaim
 bootloader memory, or initialize PMM/VMM. The unsafe caller must prove that
 response structures and nested pointers are mapped, readable, aligned, and
 live. Pointer nullness/alignment checks alone cannot establish memory safety.
-The bootstrap entry still does not call this function because linker symbol
-access, fixed-capacity early storage, and a diagnostic failure path have not
-yet been integrated into the final ELF entry.
+The bootstrap entry now calls this function using linker bounds and static
+fixed-capacity storage. This is source-level integration only: there is still
+no final ELF target or QEMU boot test to prove the complete handoff at runtime.
 
 ## 10. Boot modules
 
