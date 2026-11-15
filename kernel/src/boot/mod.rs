@@ -8,6 +8,7 @@ mod handoff;
 mod info;
 mod limine;
 mod requests;
+mod reservations;
 mod validate;
 
 #[cfg(target_os = "none")]
@@ -28,6 +29,10 @@ pub use limine::{
     LimineMemmapResponse, LimineModuleResponse, LimineUuid, normalize_executable_address_response,
     normalize_hhdm_response, normalize_memory_kind, normalize_memory_map_response,
     normalize_module_response,
+};
+pub use reservations::{
+    BootReservation, BootReservationKind, ReservationError, build_boot_reservations,
+    is_usable_unreserved_range,
 };
 pub use requests::{
     BaseRevisionTag, LIMINE_BASE_REVISION, LIMINE_BASE_REVISION_TAG, LIMINE_COMMON_MAGIC,
