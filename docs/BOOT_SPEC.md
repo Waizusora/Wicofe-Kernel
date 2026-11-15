@@ -164,7 +164,7 @@ The x86-64 entry implementation must:
 - Validate CPU features before enabling optional instructions or control-register features.
 - Establish kernel-owned page-table and TLB policy through the VMM/HAL.
 
-The exact GDT layout, stack size, linker layout, relocation model, and minimum CPU feature baseline remain to be specified.
+The exact GDT layout, relocation model, and minimum CPU feature baseline remain to be specified. The current Limine request asks for a 64 KiB bootstrap stack.
 
 ## 8. AArch64 entry obligations
 
@@ -177,7 +177,7 @@ The AArch64 entry implementation must:
 - Not assume FP/SIMD/SVE is enabled at entry.
 - Validate required CPU features before using them.
 
-The initial EL policy, platform firmware requirements, GIC version baseline, and page-table layout remain open pending target-platform selection.
+The Limine base-revision-6 handoff enters AArch64 at EL1, or at EL2 with VHE when the bootloader is at EL2 and VHE is supported. The kernel must still select and document its long-term EL policy. Platform firmware requirements, GIC version baseline, and page-table layout remain open pending target-platform selection.
 
 ## 9. ELF and linker policy
 
@@ -196,7 +196,7 @@ Architecture-specific linker scripts now define the kernel image boundaries:
 - `__kernel_start`: first byte of the linked image.
 - `__kernel_end`: exclusive end of the image, page-aligned after BSS.
 
-Both scripts divide loadable segments into RX text, read-only data, and RW data/BSS program headers. Limine request-section input ranges are retained in the read-only segment. Load memory addresses are image-relative; runtime physical and virtual bases are supplied by Limine's executable-address response.
+Both scripts divide loadable segments into RX text, read-only data, and RW data/BSS program headers. Limine request-section input ranges are retained in the writable data segment because the bootloader patches response pointers and the base-revision support marker. Load memory addresses are image-relative; runtime physical and virtual bases are supplied by Limine's executable-address response.
 
 The entry layer must read the linker symbol addresses and call
 `KernelImage::from_linker_bounds` with the physical base corresponding to
@@ -207,10 +207,15 @@ This milestone adds linker layouts and the tested range-derivation contract.
 The crate is still an `rlib`: there is no `_start` implementation, no
 architecture entry assembly, and no target-specific final link invocation.
 Therefore these scripts are not yet used by the Cargo build, and the symbols
-are not yet read at runtime. The chosen virtual bases and ELF program-header
-layout must be validated with actual Limine-linked images before being treated
+are not yet read at runtime. The x86-64 and AArch64 scripts use the Limine-required higher-half minimum
+virtual address of 0xffffffff80000000. The chosen ELF program-header layout
+must still be validated with actual Limine-linked images before being treated
 as a stable boot ABI.
 
+
+### 9.2 Limine request registration
+
+`kernel/src/boot/requests.rs`NaN
 ## 10. Boot modules
 
 Boot modules may carry early drivers or other resources in future stages. Each module must have validated bounds, a defined identity/metadata format, and an explicit lifetime. Module bytes must remain reserved until consumed or copied. Boot modules are not automatically trusted merely because the bootloader loaded them.
@@ -233,7 +238,7 @@ A successful host `cargo check` is not evidence of a bootable kernel.
 
 ## 13. Deferred decisions
 
-- Exact Limine release/protocol revision to pin.
+- Exact Limine bootloader release to pin (the request records currently target protocol base revision 6).
 - Boot media layout and reproducible image tooling.
 - Minimum x86-64 CPU feature level.
 - AArch64 platform profile and exception-level policy.
