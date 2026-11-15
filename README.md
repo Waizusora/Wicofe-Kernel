@@ -13,7 +13,7 @@ WICOFE is an independent Unix-like operating system project. Its kernel is desig
 
 ## Current status
 
-**Architecture and foundation scaffold phase.** The architecture and subsystem contracts are draft specifications, and an initial `no_std` Cargo workspace exists. Boot foundation code currently includes normalized boot-information types, typed physical/virtual addresses, memory-map validation, and allocation-free Limine response adapters for the memory map, HHDM offset, and executable physical/virtual base addresses. The kernel is not yet bootable: Limine request registration, architecture entry assembly, linker scripts, kernel image-size discovery, PMM/VMM, DKM loader, and filesystems are not implemented.
+**Architecture and foundation scaffold phase.** The architecture and subsystem contracts are draft specifications, and an initial `no_std` Cargo workspace exists. Boot foundation code currently includes normalized boot-information types, typed physical/virtual addresses, memory-map validation, and allocation-free Limine response adapters for the memory map, HHDM offset, executable physical/virtual base addresses, and boot-module physical ranges. The kernel is not yet bootable: Limine request registration, architecture entry assembly, linker scripts, kernel image-size discovery, module metadata copying, PMM/VMM, DKM loader, and filesystems are not implemented.
 
 ## Documentation
 
@@ -47,7 +47,7 @@ The DKM object format/relocation policy and the ONWFS on-disk format remain open
 
 ## Initial workspace
 
-The repository contains a minimal Cargo workspace and an architecture-neutral `wicofe-kernel` library crate using `#![no_std]`. The current boot work includes normalized boot-information types, typed address primitives, memory-map validation, and Limine response normalization for the memory map, HHDM offset, and executable address bases. It does not yet include Limine request-section registration, an executable entry point, panic handling, a linker script, or allocator implementation.
+The repository contains a minimal Cargo workspace and an architecture-neutral `wicofe-kernel` library crate using `#![no_std]`. The current boot work includes normalized boot-information types, typed address primitives, memory-map validation, and Limine response normalization for the memory map, HHDM offset, executable address bases, and boot-module physical ranges. It does not yet include Limine request-section registration, an executable entry point, panic handling, a linker script, or allocator implementation.
 
 From the repository root, run:
 
