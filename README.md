@@ -23,6 +23,7 @@ WICOFE is an independent implementation. It is not a Linux or BSD derivative.
 - [Kernel design](docs/KERNEL_DESIGN.md)
 - [DKM specification](docs/DKM_SPEC.md)
 - [VFS and filesystem specification](docs/FILESYSTEM_SPEC.md)
+- [Memory management specification](docs/MEMORY_MANAGEMENT_SPEC.md)
 - [Licensing policy](docs/LICENSING.md)
 
 The DKM object format/relocation policy and the ONWFS on-disk format remain open design decisions.
@@ -36,6 +37,7 @@ The DKM object format/relocation policy and the ONWFS on-disk format remain open
 | Low-level language | Assembly |
 | CPU targets | x86-64, AArch64 |
 | Native filesystem | ONWFS (Oh Nice WICOFE Filesystem) |
+| Memory management | Custom Hybrid: bitmap bootstrap/metadata, buddy PMM, VMM, slab kernel heap |
 | Additional built-in filesystem | FAT32 |
 | Optional filesystems and drivers | DKM, where boot dependencies permit |
 | License for original code | MPL-2.0 |
