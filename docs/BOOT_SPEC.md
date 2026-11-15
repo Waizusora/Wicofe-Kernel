@@ -1,7 +1,7 @@
 # WICOFE Boot Foundation Specification
 
 - **Document:** BOOT_SPEC.md
-- **Version:** 1.2
+- **Version:** 1.3
 - **Status:** Initial boot architecture decision and adapter implementation notes
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
@@ -124,7 +124,22 @@ The Executable Address response contains `physical_base` and `virtual_base`. WIC
 
 This response does **not** contain the executable image length. Therefore the adapter does not construct a complete `KernelImage` or reserve a kernel range by itself. The image length must come from trusted linker symbols or validated executable-format metadata before constructing the normalized `KernelImage`. The response pointer is subject to the same unsafe readability, mapping, alignment, and lifetime contract.
 
-These adapters are response decoders, not a complete boot integration. Limine request registration, linker retention, module response parsing, image-size discovery, and architecture entry assembly remain separate work. The Limine protocol specification is authoritative for ABI field order and feature semantics.
+### 5.4 Limine module response adapter
+
+The module response contains a module count and a pointer to an array of pointers to `LimineFile` structures. The file structure includes a data address, byte size, path/string metadata, and media information. The adapter mirrors the ABI with `LimineModuleResponse`, `LimineFile`, and `LimineUuid`.
+
+Limine's non-null pointers are HHDM virtual pointers with the HHDM offset already applied. In particular, `LimineFile.address` must not be stored directly as a physical address. `normalize_module_response` subtracts the supplied `HhdmOffset` and emits caller-owned `BootModule` records containing physical base and length.
+
+The adapter:
+- Uses caller-provided output storage and performs no allocation.
+- Validates response, array, and file-structure pointer nullness/alignment, count conversion, and output capacity.
+- Rejects null module data addresses, non-4-KiB-aligned module addresses, addresses below the supplied HHDM offset, zero-sized modules, physical-range overflow, and overlapping module ranges.
+- Does not dereference or retain `path` or `string`. If module identity/command metadata is needed, it must be copied into kernel-owned storage before bootloader-reclaimable memory is released.
+- Does not prove arbitrary pointers are mapped/readable; the unsafe caller must establish this from the boot handoff contract.
+
+A missing module response is optional according to the protocol. The caller may interpret `NullResponse` as no modules when modules are not required; it must not silently do so when a boot policy requires a particular module. A zero module count is accepted with a null module-array pointer.
+
+These adapters are response decoders, not a complete boot integration. Limine request registration, linker retention, kernel image-size discovery, metadata copying, and architecture entry assembly remain separate work. The official Limine protocol specification is authoritative for ABI field order and pointer semantics.
 
 ## 6. Memory map and reservations
 
