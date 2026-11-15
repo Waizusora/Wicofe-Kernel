@@ -8,10 +8,7 @@ use core::cell::UnsafeCell;
 use core::ffi::c_void;
 
 /// Limine common request magic.
-pub const LIMINE_COMMON_MAGIC: [u64; 2] = [
-    0xc7b1_dd30_df4c_8b88,
-    0x0a82_e883_a194_f07b,
-];
+pub const LIMINE_COMMON_MAGIC: [u64; 2] = [0xc7b1_dd30_df4c_8b88, 0x0a82_e883_a194_f07b];
 
 /// Base revision requested by this kernel.
 pub const LIMINE_BASE_REVISION: u64 = 6;
@@ -23,10 +20,7 @@ const REQUESTS_START: [u64; 4] = [
     0x181e_920a_7852_b9d9,
 ];
 
-const REQUESTS_END: [u64; 2] = [
-    0xadc0_e053_1bb1_0d03,
-    0x9572_709f_3176_4c62,
-];
+const REQUESTS_END: [u64; 2] = [0xadc0_e053_1bb1_0d03, 0x9572_709f_3176_4c62];
 
 /// Limine base-revision tag. The bootloader writes zero to revision when the
 /// requested base revision is supported.
