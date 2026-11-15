@@ -1,7 +1,7 @@
 # WICOFE Boot Foundation Specification
 
 - **Document:** BOOT_SPEC.md
-- **Version:** 1.1
+- **Version:** 1.2
 - **Status:** Initial boot architecture decision and adapter implementation notes
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
@@ -112,7 +112,19 @@ Type mapping:
 | Reserved mapped | `FirmwareReserved` |
 | Unknown future value | `Unknown` |
 
-This adapter is a response decoder, not yet a complete boot integration. Request-section registration, linker retention, executable-address/kernel-image sizing, module response parsing, HHDM validation, and architecture entry assembly remain separate work. The Limine protocol specification is the authority for ABI field order and memory-map type values.
+### 5.2 Limine HHDM response adapter
+
+The HHDM response contains a revision and a 64-bit `offset`, defined by Limine as the virtual address offset of the beginning of the higher-half direct map. WICOFE mirrors this ABI in `LimineHhdmResponse` and normalizes it to the distinct `HhdmOffset` type.
+
+The adapter checks response nullness and alignment before reading it. The unsafe caller remains responsible for proving that the response memory is mapped, readable, and live. The offset is not a physical address, is not itself proof that every physical range is mapped, and must not be added twice. The implementation deliberately does not hard-code a single HHDM base because Limine selects it and it may vary between boots.
+
+### 5.3 Limine executable address response adapter
+
+The Executable Address response contains `physical_base` and `virtual_base`. WICOFE normalizes these into `PhysAddr` and `VirtAddr` inside `ExecutableAddress`, preserving the distinction between physical and virtual address domains.
+
+This response does **not** contain the executable image length. Therefore the adapter does not construct a complete `KernelImage` or reserve a kernel range by itself. The image length must come from trusted linker symbols or validated executable-format metadata before constructing the normalized `KernelImage`. The response pointer is subject to the same unsafe readability, mapping, alignment, and lifetime contract.
+
+These adapters are response decoders, not a complete boot integration. Limine request registration, linker retention, module response parsing, image-size discovery, and architecture entry assembly remain separate work. The Limine protocol specification is authoritative for ABI field order and feature semantics.
 
 ## 6. Memory map and reservations
 
