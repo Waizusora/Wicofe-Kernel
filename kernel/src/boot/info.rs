@@ -3,6 +3,8 @@
 //! These Rust types are not the Limine wire ABI and are not a stable DKM ABI.
 //! A protocol adapter must validate raw responses before constructing them.
 
+use super::validate::{validate_memory_map, MemoryMapError};
+
 /// Kind of physical memory described by the bootloader memory map.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MemoryRegionKind {
@@ -26,12 +28,10 @@ pub struct MemoryRegion {
 }
 
 impl MemoryRegion {
-    /// Returns the exclusive end address if the range is valid.
     pub const fn end(self) -> Option<u64> {
         self.base.checked_add(self.length)
     }
 
-    /// Returns whether the range has a non-zero length and no overflow.
     pub const fn is_valid(self) -> bool {
         self.length != 0 && self.end().is_some()
     }
@@ -107,24 +107,31 @@ pub struct BootInfo<'a> {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum BootInfoError {
     InvalidMemoryRegion,
+    OverlappingMemoryRegions,
     InvalidKernelImage,
     InvalidBootModule,
     InvalidFramebuffer,
 }
 
 impl BootInfo<'_> {
-    /// Performs basic range validation before memory initialization.
+    /// Performs range validation before memory initialization.
     ///
-    /// This does not prove that ranges are non-overlapping or that the
-    /// bootloader-provided pointers were safe to dereference. The protocol
-    /// adapter must establish those properties before constructing BootInfo.
+    /// This does not prove that bootloader-provided pointers are safe to
+    /// dereference. The protocol adapter must establish pointer validity and
+    /// response lifetime before constructing BootInfo.
     pub fn validate(&self) -> Result<(), BootInfoError> {
         if !self.kernel_image.is_valid() {
             return Err(BootInfoError::InvalidKernelImage);
         }
 
-        if self.memory_map.iter().any(|region| !region.is_valid()) {
-            return Err(BootInfoError::InvalidMemoryRegion);
+        match validate_memory_map(self.memory_map) {
+            Ok(()) => {}
+            Err(MemoryMapError::EmptyRegion | MemoryMapError::AddressOverflow) => {
+                return Err(BootInfoError::InvalidMemoryRegion);
+            }
+            Err(MemoryMapError::OverlappingRegions) => {
+                return Err(BootInfoError::OverlappingMemoryRegions);
+            }
         }
 
         if self.modules.iter().any(|module| !module.is_valid()) {
@@ -169,7 +176,6 @@ mod tests {
             hhdm_offset: Some(0xffff_8000_0000_0000),
             framebuffer: None,
         };
-
         assert_eq!(info.validate(), Ok(()));
     }
 
@@ -188,8 +194,36 @@ mod tests {
             hhdm_offset: None,
             framebuffer: None,
         };
-
         assert_eq!(info.validate(), Err(BootInfoError::InvalidMemoryRegion));
+    }
+
+    #[test]
+    fn rejects_overlapping_memory_regions() {
+        let memory_map = [
+            MemoryRegion {
+                base: 0x1000,
+                length: 0x3000,
+                kind: MemoryRegionKind::Usable,
+                attributes: 0,
+            },
+            MemoryRegion {
+                base: 0x2000,
+                length: 0x1000,
+                kind: MemoryRegionKind::FirmwareReserved,
+                attributes: 0,
+            },
+        ];
+        let info = BootInfo {
+            memory_map: &memory_map,
+            kernel_image: KERNEL,
+            modules: &[],
+            hhdm_offset: None,
+            framebuffer: None,
+        };
+        assert_eq!(
+            info.validate(),
+            Err(BootInfoError::OverlappingMemoryRegions)
+        );
     }
 
     #[test]
@@ -205,7 +239,6 @@ mod tests {
             hhdm_offset: None,
             framebuffer: None,
         };
-
         assert_eq!(info.validate(), Err(BootInfoError::InvalidKernelImage));
     }
 
@@ -222,7 +255,6 @@ mod tests {
             hhdm_offset: None,
             framebuffer: None,
         };
-
         assert_eq!(info.validate(), Err(BootInfoError::InvalidBootModule));
     }
 }
