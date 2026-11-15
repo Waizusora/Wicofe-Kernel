@@ -17,6 +17,8 @@ WICOFE is an independent Unix-like operating system project. Its kernel is desig
 
 ## Documentation
 
+- [Full operating system blueprint](docs/FULL_OS_BLUEPRINT.md)
+
 - [Architecture specification](ARCHITECTURE.md)
 - [Kernel design](docs/KERNEL_DESIGN.md)
 - [DKM specification](docs/DKM_SPEC.md)
