@@ -1,10 +1,17 @@
 #![no_std]
 
-//! Initial architecture-neutral foundation for the WICOFE kernel.
+//! Initial foundation for the WICOFE monolithic kernel.
 //!
-//! This crate intentionally contains no boot protocol, allocator, panic handler,
-//! global allocator, or architecture-specific entry point yet. Those contracts
-//! must be designed before the kernel can be linked into a bootable image.
+//! The crate is not yet a bootable kernel image. Protocol-specific entry
+//! assembly, linker scripts, allocator implementations, and panic handling
+//! are introduced in later boot-foundation milestones.
+
+#[cfg(test)]
+extern crate std;
+
+pub mod arch;
+pub mod boot;
+pub mod hal;
 
 /// Kernel identity used by early diagnostics and build metadata.
 pub const KERNEL_NAME: &str = "WICOFE";
