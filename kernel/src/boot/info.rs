@@ -3,7 +3,7 @@
 //! These Rust types are not the Limine wire ABI and are not a stable DKM ABI.
 //! A protocol adapter must validate raw responses before constructing them.
 
-use super::validate::{validate_memory_map, MemoryMapError};
+use super::validate::{MemoryMapError, validate_memory_map};
 
 /// Kind of physical memory described by the bootloader memory map.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
