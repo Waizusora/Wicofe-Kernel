@@ -28,14 +28,15 @@ SECTIONS
 
     .rodata ALIGN(4K) : AT(ADDR(.rodata) - KERNEL_VMA)
     {
-        KEEP(*(.limine_requests_start))
-        KEEP(*(.limine_requests))
-        KEEP(*(.limine_requests_end))
         *(.rodata .rodata.*)
     } :rodata
 
     .data ALIGN(4K) : AT(ADDR(.data) - KERNEL_VMA)
     {
+        /* Limine patches response pointers; request records must be writable. */
+        KEEP(*(.limine_requests_start))
+        KEEP(*(.limine_requests))
+        KEEP(*(.limine_requests_end))
         *(.data .data.*)
         *(.got .got.*)
     } :data
