@@ -12,14 +12,13 @@ pub use info::{
     MemoryRegionKind,
 };
 pub use limine::{
-    normalize_executable_address_response, normalize_hhdm_response,
-    normalize_memory_kind, normalize_memory_map_response, normalize_module_response,
-    ExecutableAddress, HhdmOffset, LimineAdapterError, LimineExecutableAddressResponse,
-    LimineFile, LimineHhdmResponse, LimineMemmapEntry, LimineMemmapResponse,
-    LimineModuleResponse, LimineUuid, LIMINE_MEMMAP_ACPI_NVS,
-    LIMINE_MEMMAP_ACPI_RECLAIMABLE, LIMINE_MEMMAP_BAD_MEMORY,
-    LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE, LIMINE_MEMMAP_EXECUTABLE_AND_MODULES,
-    LIMINE_MEMMAP_FRAMEBUFFER, LIMINE_MEMMAP_RESERVED, LIMINE_MEMMAP_RESERVED_MAPPED,
-    LIMINE_MEMMAP_USABLE,
+    ExecutableAddress, HhdmOffset, LIMINE_MEMMAP_ACPI_NVS, LIMINE_MEMMAP_ACPI_RECLAIMABLE,
+    LIMINE_MEMMAP_BAD_MEMORY, LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE,
+    LIMINE_MEMMAP_EXECUTABLE_AND_MODULES, LIMINE_MEMMAP_FRAMEBUFFER, LIMINE_MEMMAP_RESERVED,
+    LIMINE_MEMMAP_RESERVED_MAPPED, LIMINE_MEMMAP_USABLE, LimineAdapterError,
+    LimineExecutableAddressResponse, LimineFile, LimineHhdmResponse, LimineMemmapEntry,
+    LimineMemmapResponse, LimineModuleResponse, LimineUuid, normalize_executable_address_response,
+    normalize_hhdm_response, normalize_memory_kind, normalize_memory_map_response,
+    normalize_module_response,
 };
-pub use validate::{validate_memory_map, MemoryMapError};
+pub use validate::{MemoryMapError, validate_memory_map};
