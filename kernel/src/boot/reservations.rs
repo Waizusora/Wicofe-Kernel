@@ -45,8 +45,7 @@ pub fn build_boot_reservations(
     info: &BootInfo<'_>,
     output: &mut [BootReservation],
 ) -> Result<usize, ReservationError> {
-    info.validate()
-        .map_err(ReservationError::InvalidBootInfo)?;
+    info.validate().map_err(ReservationError::InvalidBootInfo)?;
 
     let required = 1 + info.modules.len() + usize::from(info.framebuffer.is_some());
     if output.len() < required {
@@ -242,7 +241,10 @@ mod tests {
             kind: MemoryRegionKind::KernelAndModules,
             attributes: 0,
         }];
-        let modules = [BootModule { physical_base: 0x31_0000, length: 0x2000 }];
+        let modules = [BootModule {
+            physical_base: 0x31_0000,
+            length: 0x2000,
+        }];
         let info = sample_info(&memory_map, &modules, None);
         let sentinel = BootReservation {
             base: 7,
@@ -317,11 +319,6 @@ mod tests {
                 attributes: 0,
             },
         ];
-        assert!(is_usable_unreserved_range(
-            &memory_map,
-            &[],
-            0x1800,
-            0x1000
-        ));
+        assert!(is_usable_unreserved_range(&memory_map, &[], 0x1800, 0x1000));
     }
 }
