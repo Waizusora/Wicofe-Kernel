@@ -73,7 +73,7 @@ Initial targets:
 
 Architecture-specific code must be isolated behind documented interfaces. The project does not target x86 32-bit or ARM 32-bit in the initial scope.
 
-Minimum CPU feature requirements, platform profiles, and boot handoff protocols remain open decisions.
+The initial bootloader and protocol are Limine. The normalized handoff contract is specified in [docs/BOOT_SPEC.md](docs/BOOT_SPEC.md). Minimum CPU feature requirements and platform profiles remain open decisions.
 
 ## 5. Hardware Abstraction Layer
 
@@ -158,7 +158,7 @@ The conceptual boot phases are:
 10. VFS initialization and root filesystem mounting.
 11. Handoff to the next operating-system stage.
 
-This sequence is a dependency outline, not a finalized boot protocol. Bootloader choice, handoff data structures, relocation model, and early module delivery remain TBD.
+This sequence is a dependency outline. Limine is the selected initial bootloader/protocol; its normalized handoff contract, validation rules, and remaining boot decisions are documented in [docs/BOOT_SPEC.md](docs/BOOT_SPEC.md). Relocation policy and early module metadata remain open.
 
 ## 12. Unix-like and POSIX direction
 
@@ -170,7 +170,7 @@ POSIX conformance applies to a broader system interface, including user-space li
 
 Original WICOFE source code is licensed under MPL-2.0.
 
-For Alternative The project policy is not to integrate GPL-, LGPL-, or AGPL-licensed code or dependencies. Permissively licensed dependencies may be considered after review of license text, notices, patent terms, provenance, and compatibility with the project's distribution model.
+The project policy is not to integrate GPL-, LGPL-, or AGPL-licensed code or dependencies. Permissively licensed dependencies may be considered after review of license text, notices, patent terms, provenance, and compatibility with the project's distribution model.
 
 Third-party code retains its original license. No third-party code may be relicensed merely by inclusion in this repository. CI should eventually enforce dependency and license auditing.
 
@@ -201,7 +201,7 @@ The exact implementation order may change when dependency analysis demonstrates 
 
 The following are deliberately not frozen by this baseline:
 
-- Bootloader and boot protocol.
+- Exact Limine release/protocol revision to pin.
 - Minimum CPU features and platform profiles.
 - PMM implementation parameters (buddy order limits, metadata encoding, zones, and synchronization).
 - Virtual address-space layout.
