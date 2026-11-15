@@ -187,6 +187,27 @@ The kernel image must use linker scripts and segment permissions that avoid writ
 
 Separate linker scripts are expected for x86-64 and AArch64.
 
+### 9.1 Kernel image extent discovery
+
+The normalized KernelImage length is derived from the linker-defined virtual
+image boundaries, not guessed from a fixed size or from the Limine executable
+address response. The architecture linker scripts are expected to export:
+
+- __kernel_start: first byte of the linked kernel image.
+- __kernel_end: exclusive end of the linked kernel image.
+
+The entry layer will read these symbol addresses and pass them, together with
+the physical load base from Limine's executable-address response, to
+KernelImage::from_linker_bounds. The constructor rejects empty/reversed
+virtual bounds and physical-range overflow.
+
+This milestone implements and tests the range derivation contract only. The
+repository does not yet contain linker scripts or entry code, so the symbols
+are not currently emitted or read at runtime. The physical base supplied to
+the constructor must correspond to __kernel_start; the final linker layout
+must preserve that correspondence on both architectures.
+
+
 ## 10. Boot modules
 
 Boot modules may carry early drivers or other resources in future stages. Each module must have validated bounds, a defined identity/metadata format, and an explicit lifetime. Module bytes must remain reserved until consumed or copied. Boot modules are not automatically trusted merely because the bootloader loaded them.
