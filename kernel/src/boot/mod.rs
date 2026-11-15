@@ -8,8 +8,8 @@ mod limine;
 mod validate;
 
 pub use info::{
-    BootInfo, BootInfoError, BootModule, FramebufferInfo, KernelImage, MemoryRegion,
-    MemoryRegionKind,
+    BootInfo, BootInfoError, BootModule, FramebufferInfo, KernelImage, KernelImageBoundsError,
+    MemoryRegion, MemoryRegionKind,
 };
 pub use limine::{
     ExecutableAddress, HhdmOffset, LIMINE_MEMMAP_ACPI_NVS, LIMINE_MEMMAP_ACPI_RECLAIMABLE,
