@@ -170,7 +170,7 @@ POSIX conformance applies to a broader system interface, including user-space li
 
 Original WICOFE source code is licensed under MPL-2.0.
 
-The project policy is not to integrate GPL-, LGPL-, or AGPL-licensed code or dependencies. Permissively licensed dependencies may be considered after review of license text, notices, patent terms, provenance, and compatibility with the project's distribution model.
+For Alternative The project policy is not to integrate GPL-, LGPL-, or AGPL-licensed code or dependencies. Permissively licensed dependencies may be considered after review of license text, notices, patent terms, provenance, and compatibility with the project's distribution model.
 
 Third-party code retains its original license. No third-party code may be relicensed merely by inclusion in this repository. CI should eventually enforce dependency and license auditing.
 
