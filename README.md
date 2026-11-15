@@ -13,7 +13,7 @@ WICOFE is an independent Unix-like operating system project. Its kernel is desig
 
 ## Current status
 
-**Architecture and foundation scaffold phase.** The architecture and subsystem contracts are draft specifications, and an initial `no_std` Cargo workspace exists. Boot foundation code currently includes normalized boot-information types, typed physical/virtual addresses, memory-map validation, and allocation-free Limine response adapters for the memory map, HHDM offset, executable physical/virtual base addresses, and boot-module physical ranges. The kernel is not yet bootable: Limine request registration, architecture entry assembly, linker scripts, kernel image-size discovery, module metadata copying, PMM/VMM, DKM loader, and filesystems are not implemented.
+**Architecture and foundation scaffold phase.** The architecture and subsystem contracts are draft specifications, and an initial `no_std` Cargo workspace exists. Boot foundation code currently includes normalized boot-information types, typed physical/virtual addresses, memory-map validation, and allocation-free Limine response adapters for the memory map, HHDM offset, executable physical/virtual base addresses, and boot-module physical ranges. The kernel is not yet bootable: Limine request registration, architecture entry assembly, linker scripts, linker-script integration and runtime kernel image-size discovery, module metadata copying, PMM/VMM, DKM loader, and filesystems are not implemented. A tested constructor now derives image length from linker-provided virtual bounds once entry code supplies them.
 
 ## Documentation
 
