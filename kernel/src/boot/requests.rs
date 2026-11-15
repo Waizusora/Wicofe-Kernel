@@ -109,7 +109,12 @@ pub static LIMINE_BASE_REVISION_TAG: BaseRevisionTag = BaseRevisionTag {
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static LIMINE_MEMMAP_REQUEST: LimineRequest = LimineRequest {
-    id: [LIMINE_COMMON_MAGIC[0], LIMINE_COMMON_MAGIC[1], 0x67cf_3d9d_378a_806f, 0xe304_acdf_c50c_3c62],
+    id: [
+        LIMINE_COMMON_MAGIC[0],
+        LIMINE_COMMON_MAGIC[1],
+        0x67cf_3d9d_378a_806f,
+        0xe304_acdf_c50c_3c62,
+    ],
     revision: 0,
     response: UnsafeCell::new(core::ptr::null_mut()),
 };
@@ -117,7 +122,12 @@ pub static LIMINE_MEMMAP_REQUEST: LimineRequest = LimineRequest {
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static LIMINE_HHDM_REQUEST: LimineRequest = LimineRequest {
-    id: [LIMINE_COMMON_MAGIC[0], LIMINE_COMMON_MAGIC[1], 0x48dc_f1cb_8ad2_b852, 0x6398_4e95_9a98_244b],
+    id: [
+        LIMINE_COMMON_MAGIC[0],
+        LIMINE_COMMON_MAGIC[1],
+        0x48dc_f1cb_8ad2_b852,
+        0x6398_4e95_9a98_244b,
+    ],
     revision: 0,
     response: UnsafeCell::new(core::ptr::null_mut()),
 };
@@ -125,7 +135,12 @@ pub static LIMINE_HHDM_REQUEST: LimineRequest = LimineRequest {
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static LIMINE_EXECUTABLE_ADDRESS_REQUEST: LimineRequest = LimineRequest {
-    id: [LIMINE_COMMON_MAGIC[0], LIMINE_COMMON_MAGIC[1], 0x71ba_7686_3cc5_5f63, 0xb264_4a48_c516_a487],
+    id: [
+        LIMINE_COMMON_MAGIC[0],
+        LIMINE_COMMON_MAGIC[1],
+        0x71ba_7686_3cc5_5f63,
+        0xb264_4a48_c516_a487,
+    ],
     revision: 0,
     response: UnsafeCell::new(core::ptr::null_mut()),
 };
@@ -133,7 +148,12 @@ pub static LIMINE_EXECUTABLE_ADDRESS_REQUEST: LimineRequest = LimineRequest {
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static LIMINE_MODULE_REQUEST: LimineRequest = LimineRequest {
-    id: [LIMINE_COMMON_MAGIC[0], LIMINE_COMMON_MAGIC[1], 0x3e7e_2797_02be_32af, 0xca1c_4f3b_d128_0cee],
+    id: [
+        LIMINE_COMMON_MAGIC[0],
+        LIMINE_COMMON_MAGIC[1],
+        0x3e7e_2797_02be_32af,
+        0xca1c_4f3b_d128_0cee,
+    ],
     revision: 0,
     response: UnsafeCell::new(core::ptr::null_mut()),
 };
@@ -141,7 +161,12 @@ pub static LIMINE_MODULE_REQUEST: LimineRequest = LimineRequest {
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static LIMINE_FRAMEBUFFER_REQUEST: LimineRequest = LimineRequest {
-    id: [LIMINE_COMMON_MAGIC[0], LIMINE_COMMON_MAGIC[1], 0x9d58_27dc_d881_dd75, 0xa314_8604_f6fa_b11b],
+    id: [
+        LIMINE_COMMON_MAGIC[0],
+        LIMINE_COMMON_MAGIC[1],
+        0x9d58_27dc_d881_dd75,
+        0xa314_8604_f6fa_b11b,
+    ],
     revision: 0,
     response: UnsafeCell::new(core::ptr::null_mut()),
 };
@@ -149,7 +174,12 @@ pub static LIMINE_FRAMEBUFFER_REQUEST: LimineRequest = LimineRequest {
 #[used]
 #[unsafe(link_section = ".limine_requests")]
 pub static LIMINE_STACK_SIZE_REQUEST: LimineStackSizeRequest = LimineStackSizeRequest {
-    id: [LIMINE_COMMON_MAGIC[0], LIMINE_COMMON_MAGIC[1], 0x224e_f046_0a8e_8926, 0xe1cb_0fc2_5f46_ea3d],
+    id: [
+        LIMINE_COMMON_MAGIC[0],
+        LIMINE_COMMON_MAGIC[1],
+        0x224e_f046_0a8e_8926,
+        0xe1cb_0fc2_5f46_ea3d,
+    ],
     revision: 0,
     response: UnsafeCell::new(core::ptr::null_mut()),
     stack_size: 64 * 1024,
@@ -192,7 +222,10 @@ mod tests {
             assert_eq!(&request.id[..2], &LIMINE_COMMON_MAGIC);
             assert_eq!(request.revision, 0);
         }
-        assert_eq!(&LIMINE_STACK_SIZE_REQUEST.id[..2], &LIMINE_COMMON_MAGIC);
+        assert_eq!(
+            &LIMINE_STACK_SIZE_REQUEST.id[..2],
+            &LIMINE_COMMON_MAGIC
+        );
         assert!(LIMINE_MEMMAP_REQUEST.response_ptr().is_null());
         assert!(LIMINE_STACK_SIZE_REQUEST.response_ptr().is_null());
     }
