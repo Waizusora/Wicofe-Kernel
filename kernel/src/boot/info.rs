@@ -150,6 +150,7 @@ pub enum BootInfoError {
     BootModuleOutsideMemoryMap,
     OverlappingBootReservations,
     InvalidFramebuffer,
+    FramebufferOutsideMemoryMap,
 }
 
 impl BootInfo<'_> {
@@ -209,8 +210,34 @@ impl BootInfo<'_> {
             }
         }
 
-        if self.framebuffer.is_some_and(|fb| !fb.is_valid()) {
-            return Err(BootInfoError::InvalidFramebuffer);
+        if let Some(framebuffer) = self.framebuffer {
+            if !framebuffer.is_valid() {
+                return Err(BootInfoError::InvalidFramebuffer);
+            }
+            if !range_is_covered_by_kind(
+                self.memory_map,
+                framebuffer.physical_base,
+                framebuffer.byte_length,
+                MemoryRegionKind::Device,
+            ) {
+                return Err(BootInfoError::FramebufferOutsideMemoryMap);
+            }
+
+            let framebuffer_end = framebuffer.physical_base + framebuffer.byte_length;
+            let kernel_end = self.kernel_image.physical_base + self.kernel_image.length;
+            if framebuffer.physical_base < kernel_end
+                && self.kernel_image.physical_base < framebuffer_end
+            {
+                return Err(BootInfoError::OverlappingBootReservations);
+            }
+            for module in self.modules {
+                let module_end = module.physical_base + module.length;
+                if framebuffer.physical_base < module_end
+                    && module.physical_base < framebuffer_end
+                {
+                    return Err(BootInfoError::OverlappingBootReservations);
+                }
+            }
         }
 
         Ok(())
