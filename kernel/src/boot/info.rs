@@ -45,11 +45,47 @@ pub struct KernelImage {
     pub length: u64,
 }
 
+/// Errors while deriving a kernel image extent from linker-provided bounds.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KernelImageBoundsError {
+    Empty,
+    ReversedVirtualBounds,
+    PhysicalRangeOverflow,
+}
+
 impl KernelImage {
     pub const fn is_valid(self) -> bool {
         self.length != 0
             && self.physical_base.checked_add(self.length).is_some()
             && self.virtual_base.checked_add(self.length).is_some()
+    }
+
+    /// Derive image length from the linker's virtual start/end symbols.
+    ///
+    /// physical_base must be the physical load base corresponding to
+    /// virtual_start (for Limine, use the executable-address response).
+    /// The linker symbols are not read here: architecture entry code must
+    /// provide their addresses after the linker scripts define them.
+    pub const fn from_linker_bounds(
+        physical_base: u64,
+        virtual_start: u64,
+        virtual_end: u64,
+    ) -> Result<Self, KernelImageBoundsError> {
+        let length = match virtual_end.checked_sub(virtual_start) {
+            Some(0) => return Err(KernelImageBoundsError::Empty),
+            Some(value) => value,
+            None => return Err(KernelImageBoundsError::ReversedVirtualBounds),
+        };
+
+        if physical_base.checked_add(length).is_none() {
+            return Err(KernelImageBoundsError::PhysicalRangeOverflow);
+        }
+
+        Ok(Self {
+            physical_base,
+            virtual_base: virtual_start,
+            length,
+        })
     }
 }
 
@@ -156,6 +192,40 @@ mod tests {
         virtual_base: 0xffff_ffff_8020_0000,
         length: 0x10_0000,
     };
+
+    #[test]
+    fn derives_kernel_image_length_from_linker_bounds() {
+        let image = KernelImage::from_linker_bounds(
+            0x20_0000,
+            0xffff_ffff_8020_0000,
+            0xffff_ffff_8038_0000,
+        )
+        .unwrap();
+        assert_eq!(
+            image,
+            KernelImage {
+                physical_base: 0x20_0000,
+                virtual_base: 0xffff_ffff_8020_0000,
+                length: 0x18_0000,
+            }
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_linker_image_bounds() {
+        assert_eq!(
+            KernelImage::from_linker_bounds(0x20_0000, 0x1000, 0x1000),
+            Err(KernelImageBoundsError::Empty)
+        );
+        assert_eq!(
+            KernelImage::from_linker_bounds(0x20_0000, 0x2000, 0x1000),
+            Err(KernelImageBoundsError::ReversedVirtualBounds)
+        );
+        assert_eq!(
+            KernelImage::from_linker_bounds(u64::MAX - 0xff, 0x1000, 0x1200),
+            Err(KernelImageBoundsError::PhysicalRangeOverflow)
+        );
+    }
 
     #[test]
     fn accepts_well_formed_boot_information() {
