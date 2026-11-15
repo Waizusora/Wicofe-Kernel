@@ -118,6 +118,61 @@ mod tests {
     use core::ptr;
 
     #[test]
+    fn consumes_required_responses_into_borrowed_boot_info() {
+        let entry = super::super::LimineMemmapEntry {
+            base: 0x1000,
+            length: 0x20_0000,
+            kind: super::super::LIMINE_MEMMAP_USABLE,
+        };
+        let entry_pointer = &entry as *const super::super::LimineMemmapEntry;
+        let entry_pointers = [entry_pointer];
+        let memory_map_response = LimineMemmapResponse {
+            revision: 0,
+            entry_count: 1,
+            entries: entry_pointers.as_ptr(),
+        };
+        let hhdm_response = LimineHhdmResponse {
+            revision: 0,
+            offset: 0xffff_8000_0000_0000,
+        };
+        let executable_response = LimineExecutableAddressResponse {
+            revision: 0,
+            physical_base: 0x20_0000,
+            virtual_base: 0xffff_ffff_8000_0000,
+        };
+        let mut memory_map_storage = [MemoryRegion {
+            base: 0,
+            length: 0,
+            kind: super::super::MemoryRegionKind::Unknown,
+            attributes: 0,
+        }];
+        let mut module_storage = [];
+        // SAFETY: All response objects and nested pointers refer to aligned
+        // local values that remain alive throughout this call.
+        let info = unsafe {
+            consume_limine_boot_info(
+                true,
+                &memory_map_response,
+                &hhdm_response,
+                &executable_response,
+                ptr::null(),
+                0xffff_ffff_8000_0000,
+                0xffff_ffff_8010_0000,
+                &mut memory_map_storage,
+                &mut module_storage,
+            )
+        }
+        .unwrap();
+
+        assert_eq!(info.memory_map.len(), 1);
+        assert_eq!(info.memory_map[0].base, 0x1000);
+        assert_eq!(info.modules.len(), 0);
+        assert_eq!(info.kernel_image.physical_base, 0x20_0000);
+        assert_eq!(info.kernel_image.length, 0x10_0000);
+        assert_eq!(info.hhdm_offset, Some(0xffff_8000_0000_0000));
+    }
+
+    #[test]
     fn rejects_missing_required_response_before_dereferencing() {
         let mut memory_map_storage = [];
         let mut module_storage = [];
