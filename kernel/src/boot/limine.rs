@@ -192,7 +192,7 @@ pub unsafe fn normalize_memory_map_response(
         return Err(LimineAdapterError::MisalignedPointer);
     }
 
-    for (index, slot) in output.iter_mut().take(count).enumerate() {
+    for index in 0..count {
         // SAFETY: The caller guarantees an array with at least count entries.
         let entry_pointer = unsafe { ptr::read(response_value.entries.add(index)) };
         if entry_pointer.is_null() {
@@ -343,7 +343,7 @@ pub unsafe fn normalize_module_response(
             }
         }
 
-        *slot = BootModule {
+        output[index] = BootModule {
             physical_base,
             length: file.size,
         };
@@ -525,6 +525,12 @@ mod tests {
 
         file.size = 0x1000;
         file.address = (HHDM + 0x40_0001) as usize as *const u8;
+        let pointers = [&file as *const LimineFile];
+        let response = LimineModuleResponse {
+            revision: 0,
+            module_count: 1,
+            modules: pointers.as_ptr(),
+        };
         // SAFETY: All response objects are local and readable.
         assert_eq!(
             unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
@@ -532,6 +538,12 @@ mod tests {
         );
 
         file.address = 0x1000usize as *const u8;
+        let pointers = [&file as *const LimineFile];
+        let response = LimineModuleResponse {
+            revision: 0,
+            module_count: 1,
+            modules: pointers.as_ptr(),
+        };
         // SAFETY: All response objects are local and readable.
         assert_eq!(
             unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
