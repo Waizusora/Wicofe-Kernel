@@ -5,6 +5,7 @@
 
 mod info;
 mod limine;
+mod requests;
 mod validate;
 
 pub use info::{
@@ -20,5 +21,11 @@ pub use limine::{
     LimineMemmapResponse, LimineModuleResponse, LimineUuid, normalize_executable_address_response,
     normalize_hhdm_response, normalize_memory_kind, normalize_memory_map_response,
     normalize_module_response,
+};
+pub use requests::{
+    BaseRevisionTag, LIMINE_BASE_REVISION, LIMINE_BASE_REVISION_TAG, LIMINE_COMMON_MAGIC,
+    LIMINE_EXECUTABLE_ADDRESS_REQUEST, LIMINE_FRAMEBUFFER_REQUEST, LIMINE_HHDM_REQUEST,
+    LIMINE_MEMMAP_REQUEST, LIMINE_MODULE_REQUEST, LIMINE_STACK_SIZE_REQUEST, LimineRequest,
+    LimineStackSizeRequest,
 };
 pub use validate::{MemoryMapError, validate_memory_map};
