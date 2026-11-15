@@ -3,7 +3,7 @@
 //! This layer validates arithmetic and range relationships only. A protocol
 //! adapter must still validate response pointers before dereferencing them.
 
-use super::{MemoryRegion, MemoryRegionKind};
+use super::MemoryRegion;
 
 /// Errors found while validating a normalized physical memory map.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -41,15 +41,13 @@ pub fn validate_memory_map(regions: &[MemoryRegion]) -> Result<(), MemoryMapErro
         }
     }
 
-    // Keep the classification import visible as a reminder that this
-    // validator does not turn unknown/reserved memory into allocatable RAM.
-    let _ = MemoryRegionKind::Unknown;
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::boot::MemoryRegionKind;
 
     const fn region(base: u64, length: u64) -> MemoryRegion {
         MemoryRegion {
