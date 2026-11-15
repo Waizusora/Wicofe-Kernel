@@ -25,6 +25,7 @@ WICOFE is an independent Unix-like operating system project. Its kernel is desig
 - [Userspace and DKM ABI boundaries](docs/ABI_BOUNDARIES.md)
 - [VFS and filesystem specification](docs/FILESYSTEM_SPEC.md)
 - [Memory management specification](docs/MEMORY_MANAGEMENT_SPEC.md)
+- Typed address primitives: `kernel/src/memory.rs` (initial implementation; validation pending CI)
 - [Boot foundation specification](docs/BOOT_SPEC.md)
 - [Licensing policy](docs/LICENSING.md)
 
