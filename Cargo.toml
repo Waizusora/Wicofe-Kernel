@@ -6,7 +6,7 @@ resolver = "3"
 version = "0.1.0"
 edition = "2024"
 license = "MPL-2.0"
-repository = "https://github.com/Waizusora/WICOFE"
+repository = "https://github.com/Waizusora/Wicofe-Kernel"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
