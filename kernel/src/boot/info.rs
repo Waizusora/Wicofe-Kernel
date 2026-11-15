@@ -197,9 +197,7 @@ impl BootInfo<'_> {
 
             let module_end = module.physical_base + module.length;
             let kernel_end = self.kernel_image.physical_base + self.kernel_image.length;
-            if module.physical_base < kernel_end
-                && self.kernel_image.physical_base < module_end
-            {
+            if module.physical_base < kernel_end && self.kernel_image.physical_base < module_end {
                 return Err(BootInfoError::OverlappingBootReservations);
             }
 
