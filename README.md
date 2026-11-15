@@ -15,17 +15,19 @@ WICOFE is an independent implementation. It is not a Linux or BSD derivative.
 
 ## Current status
 
-**Architecture and design phase.** No bootable kernel or stable kernel ABI is claimed at this stage. Specifications are being established before implementation.
+**Architecture and foundation scaffold phase.** The architecture and subsystem contracts are draft specifications, and an initial `no_std` Cargo workspace exists. No bootable kernel, boot protocol, implemented DKM loader, implemented filesystem, or stable kernel ABI is claimed.
 
 ## Documentation
 
 - [Architecture specification](ARCHITECTURE.md)
 - [Kernel design](docs/KERNEL_DESIGN.md)
+- [DKM specification](docs/DKM_SPEC.md)
+- [VFS and filesystem specification](docs/FILESYSTEM_SPEC.md)
 - [Licensing policy](docs/LICENSING.md)
 
-Further specifications will cover DKM and filesystem formats.
+The DKM object format/relocation policy and the ONWFS on-disk format remain open design decisions.
 
-## Initial targets
+## Initial targets and decisions
 
 | Area | Decision |
 |---|---|
@@ -38,10 +40,16 @@ Further specifications will cover DKM and filesystem formats.
 | Optional filesystems and drivers | DKM, where boot dependencies permit |
 | License for original code | MPL-2.0 |
 
+## Initial workspace
+
+The repository contains a minimal Cargo workspace and an architecture-neutral `wicofe-kernel` library crate using `#![no_std]`. It is only a compilation scaffold; it does not yet contain a boot entry point, allocator, panic handler, linker script, HAL, or architecture-specific code.
+
+From the repository root, run:
+
+```sh
+cargo check --workspace
+```
+
 ## Contributing
 
-Contribution guidelines and subsystem-specific requirements will be added as the project moves toward implementation. Do not submit copied or license-incompatible code. All third-party code and dependencies must be reviewed for license obligations before integration.
-
-## License
-
-Original source files in this repository are made available under the Mozilla Public License 2.0. See [LICENSE](LICENSE) and [docs/LICENSING.md](docs/LICENSING.md). Third-party components, when approved, remain under their respective licenses.
+Contribution guidelines and subsystem-specific requirements will be added as the project moves toward implementation. Do not submit copied or license-incompatible code. All third-party code and dependencies must be reviewed for license, provenance, and compatibility before integration.
