@@ -68,7 +68,7 @@ kernel/src/
     └── mod.rs
 ```
 
-Architecture entry assembly and linker scripts will be introduced in a later implementation step. Common initialization must not contain inline assumptions about x86-64 registers, AArch64 exception levels, or page-table encodings.
+Architecture entry trampolines and linker layout scaffolds now exist. Final ELF linking and runtime boot-information consumption remain separate milestones. Common initialization must not contain inline assumptions about x86-64 registers, AArch64 exception levels, or page-table encodings.
 
 ## 5. Normalized boot information
 
@@ -155,7 +155,7 @@ The boot memory map is input to the WICOFE Custom Hybrid Memory Manager. It does
 
 ## 7. x86-64 entry obligations
 
-The x86-64 entry implementation must:
+The current x86-64 `_start` trampoline must, and does:
 - Follow the Limine x86-64 calling convention.
 - Establish a known-good stack before calling Rust code.
 - Preserve required boot handoff values across assembly setup.
@@ -164,11 +164,11 @@ The x86-64 entry implementation must:
 - Validate CPU features before enabling optional instructions or control-register features.
 - Establish kernel-owned page-table and TLB policy through the VMM/HAL.
 
-The exact GDT layout, relocation model, and minimum CPU feature baseline remain to be specified. The current Limine request asks for a 64 KiB bootstrap stack.
+The trampoline does not yet install a GDT, IDT, or TSS. The exact descriptor layout, relocation model, and minimum CPU feature baseline remain to be specified. The current Limine request asks for a 64 KiB bootstrap stack.
 
 ## 8. AArch64 entry obligations
 
-The AArch64 entry implementation must:
+The current AArch64 `_start` trampoline must, and does:
 - Follow the Limine AAPCS64 handoff convention.
 - Establish a known-good stack and preserve boot handoff values.
 - Detect the current exception level and normalize execution to the selected kernel EL policy.
@@ -177,7 +177,7 @@ The AArch64 entry implementation must:
 - Not assume FP/SIMD/SVE is enabled at entry.
 - Validate required CPU features before using them.
 
-The Limine base-revision-6 handoff enters AArch64 at EL1, or at EL2 with VHE when the bootloader is at EL2 and VHE is supported. The kernel must still select and document its long-term EL policy. Platform firmware requirements, GIC version baseline, and page-table layout remain open pending target-platform selection.
+The Limine base-revision-6 handoff enters AArch64 at EL1, or at EL2 with VHE when the bootloader is at EL2 and VHE is supported. The current trampoline is EL-neutral and does not change exception level or page tables. The kernel must still select and document its long-term EL policy. Platform firmware requirements, GIC version baseline, and page-table layout remain open pending target-platform selection.
 
 ## 9. ELF and linker policy
 
@@ -215,7 +215,40 @@ as a stable boot ABI.
 
 ### 9.2 Limine request registration
 
-`kernel/src/boot/requests.rs`NaN
+The request records are defined in `kernel/src/boot/requests.rs` and exported
+through `kernel/src/boot/mod.rs`. They request memory map, HHDM, executable
+address, modules, framebuffer, and a 64 KiB bootstrap stack. The base-revision
+tag requests revision 6. Its third word must be zero after handoff before the
+kernel relies on revision-6 guarantees.
+
+The request response fields are interior-mutable because Limine patches them
+before entry. The linker scripts retain request records in the writable data
+segment. The request delimiters are retained around the request records.
+
+### 9.3 Architecture entry trampolines and handoff gate
+
+The architecture backends now contain minimal Limine entry trampolines:
+
+- x86-64 `_start`: disables interrupts, clears the direction flag, aligns
+  the bootloader-provided stack for the System V ABI, and calls
+  `wicofe_bootstrap`.
+- AArch64 `_start`: masks all interrupt classes and calls
+  `wicofe_bootstrap` using the Limine-provided stack and AAPCS64.
+
+The shared Rust entry validates the base-revision marker and checks that the
+memory-map, HHDM, and executable-address response pointers are non-null.
+Missing module and framebuffer responses are not treated as fatal at this
+stage because those features are optional to the minimum bootstrap.
+
+This is intentionally a fail-stop scaffold: after the pointer-presence gate,
+the kernel spins without dereferencing response data. It does not yet install
+an IDT/VBAR, replace page tables, copy boot metadata, initialize PMM/VMM, or
+emit diagnostics. The entry trampolines are compiled only for
+`target_os = "none"`.
+
+The crate remains an `rlib`; there is no final kernel ELF target, panic
+handler, final Cargo linker integration, or QEMU boot test yet. Therefore
+these entry symbols and linker scripts are not yet proven in a bootable image.
 ## 10. Boot modules
 
 Boot modules may carry early drivers or other resources in future stages. Each module must have validated bounds, a defined identity/metadata format, and an explicit lifetime. Module bytes must remain reserved until consumed or copied. Boot modules are not automatically trusted merely because the bootloader loaded them.
