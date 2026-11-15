@@ -203,7 +203,7 @@ pub unsafe fn normalize_memory_map_response(
         }
         // SAFETY: The caller guarantees each entry is readable and live.
         let entry = unsafe { ptr::read(entry_pointer) };
-        *slot = MemoryRegion {
+        output[index] = MemoryRegion {
             base: entry.base,
             length: entry.length,
             kind: normalize_memory_kind(entry.kind),
@@ -521,11 +521,7 @@ mod tests {
         // SAFETY: All response objects are local and readable.
         assert_eq!(
             unsafe {
-                normalize_module_response(
-                    &empty_response,
-                    HhdmOffset::new(HHDM),
-                    &mut output,
-                )
+                normalize_module_response(&empty_response, HhdmOffset::new(HHDM), &mut output)
             },
             Err(LimineAdapterError::EmptyModule)
         );
@@ -542,11 +538,7 @@ mod tests {
         // SAFETY: All response objects are local and readable.
         assert_eq!(
             unsafe {
-                normalize_module_response(
-                    &misaligned_response,
-                    HhdmOffset::new(HHDM),
-                    &mut output,
-                )
+                normalize_module_response(&misaligned_response, HhdmOffset::new(HHDM), &mut output)
             },
             Err(LimineAdapterError::MisalignedModuleAddress)
         );
@@ -563,11 +555,7 @@ mod tests {
         // SAFETY: All response objects are local and readable.
         assert_eq!(
             unsafe {
-                normalize_module_response(
-                    &outside_response,
-                    HhdmOffset::new(HHDM),
-                    &mut output,
-                )
+                normalize_module_response(&outside_response, HhdmOffset::new(HHDM), &mut output)
             },
             Err(LimineAdapterError::ModuleAddressOutsideHhdm)
         );
