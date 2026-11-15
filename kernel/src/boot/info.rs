@@ -145,7 +145,10 @@ pub enum BootInfoError {
     InvalidMemoryRegion,
     OverlappingMemoryRegions,
     InvalidKernelImage,
+    KernelImageOutsideMemoryMap,
     InvalidBootModule,
+    BootModuleOutsideMemoryMap,
+    OverlappingBootReservations,
     InvalidFramebuffer,
 }
 
@@ -170,8 +173,42 @@ impl BootInfo<'_> {
             }
         }
 
-        if self.modules.iter().any(|module| !module.is_valid()) {
-            return Err(BootInfoError::InvalidBootModule);
+        if !range_is_covered_by_kind(
+            self.memory_map,
+            self.kernel_image.physical_base,
+            self.kernel_image.length,
+            MemoryRegionKind::KernelAndModules,
+        ) {
+            return Err(BootInfoError::KernelImageOutsideMemoryMap);
+        }
+
+        for (index, module) in self.modules.iter().enumerate() {
+            if !module.is_valid() {
+                return Err(BootInfoError::InvalidBootModule);
+            }
+            if !range_is_covered_by_kind(
+                self.memory_map,
+                module.physical_base,
+                module.length,
+                MemoryRegionKind::KernelAndModules,
+            ) {
+                return Err(BootInfoError::BootModuleOutsideMemoryMap);
+            }
+
+            let module_end = module.physical_base + module.length;
+            let kernel_end = self.kernel_image.physical_base + self.kernel_image.length;
+            if module.physical_base < kernel_end
+                && self.kernel_image.physical_base < module_end
+            {
+                return Err(BootInfoError::OverlappingBootReservations);
+            }
+
+            for other in &self.modules[..index] {
+                let other_end = other.physical_base + other.length;
+                if module.physical_base < other_end && other.physical_base < module_end {
+                    return Err(BootInfoError::OverlappingBootReservations);
+                }
+            }
         }
 
         if self.framebuffer.is_some_and(|fb| !fb.is_valid()) {
@@ -180,6 +217,44 @@ impl BootInfo<'_> {
 
         Ok(())
     }
+}
+
+/// Return whether a physical range is completely covered by regions of one
+/// memory kind. Adjacent regions of the same kind may jointly cover it.
+fn range_is_covered_by_kind(
+    regions: &[MemoryRegion],
+    base: u64,
+    length: u64,
+    required_kind: MemoryRegionKind,
+) -> bool {
+    let Some(end) = base.checked_add(length) else {
+        return false;
+    };
+    if length == 0 {
+        return false;
+    }
+
+    let mut cursor = base;
+    while cursor < end {
+        let mut next_end = cursor;
+        for region in regions {
+            if region.kind != required_kind {
+                continue;
+            }
+            let Some(region_end) = region.end() else {
+                return false;
+            };
+            if region.base <= cursor && cursor < region_end && region_end > next_end {
+                next_end = region_end;
+            }
+        }
+        if next_end == cursor {
+            return false;
+        }
+        cursor = next_end.min(end);
+    }
+
+    true
 }
 
 #[cfg(test)]
@@ -229,12 +304,20 @@ mod tests {
 
     #[test]
     fn accepts_well_formed_boot_information() {
-        let memory_map = [MemoryRegion {
-            base: 0x10_0000,
-            length: 0x40_0000,
-            kind: MemoryRegionKind::Usable,
-            attributes: 0,
-        }];
+        let memory_map = [
+            MemoryRegion {
+                base: 0x10_0000,
+                length: 0x10_0000,
+                kind: MemoryRegionKind::Usable,
+                attributes: 0,
+            },
+            MemoryRegion {
+                base: 0x20_0000,
+                length: 0x40_0000,
+                kind: MemoryRegionKind::KernelAndModules,
+                attributes: 0,
+            },
+        ];
         let modules = [BootModule {
             physical_base: 0x50_0000,
             length: 0x20_000,
@@ -326,5 +409,131 @@ mod tests {
             framebuffer: None,
         };
         assert_eq!(info.validate(), Err(BootInfoError::InvalidBootModule));
+    }
+
+    #[test]
+    fn rejects_kernel_image_not_covered_by_kernel_module_memory() {
+        let memory_map = [MemoryRegion {
+            base: 0x20_0000,
+            length: 0x10_0000,
+            kind: MemoryRegionKind::Usable,
+            attributes: 0,
+        }];
+        let info = BootInfo {
+            memory_map: &memory_map,
+            kernel_image: KERNEL,
+            modules: &[],
+            hhdm_offset: None,
+            framebuffer: None,
+        };
+        assert_eq!(
+            info.validate(),
+            Err(BootInfoError::KernelImageOutsideMemoryMap)
+        );
+    }
+
+    #[test]
+    fn rejects_module_not_covered_by_kernel_module_memory() {
+        let memory_map = [MemoryRegion {
+            base: 0x20_0000,
+            length: 0x10_0000,
+            kind: MemoryRegionKind::KernelAndModules,
+            attributes: 0,
+        }];
+        let modules = [BootModule {
+            physical_base: 0x40_0000,
+            length: 0x1000,
+        }];
+        let info = BootInfo {
+            memory_map: &memory_map,
+            kernel_image: KERNEL,
+            modules: &modules,
+            hhdm_offset: None,
+            framebuffer: None,
+        };
+        assert_eq!(
+            info.validate(),
+            Err(BootInfoError::BootModuleOutsideMemoryMap)
+        );
+    }
+
+    #[test]
+    fn rejects_overlapping_kernel_and_module_reservations() {
+        let memory_map = [MemoryRegion {
+            base: 0x20_0000,
+            length: 0x20_0000,
+            kind: MemoryRegionKind::KernelAndModules,
+            attributes: 0,
+        }];
+        let modules = [BootModule {
+            physical_base: 0x2f_0000,
+            length: 0x2000,
+        }];
+        let info = BootInfo {
+            memory_map: &memory_map,
+            kernel_image: KERNEL,
+            modules: &modules,
+            hhdm_offset: None,
+            framebuffer: None,
+        };
+        assert_eq!(
+            info.validate(),
+            Err(BootInfoError::OverlappingBootReservations)
+        );
+    }
+
+    #[test]
+    fn rejects_overlapping_modules() {
+        let memory_map = [MemoryRegion {
+            base: 0x20_0000,
+            length: 0x20_0000,
+            kind: MemoryRegionKind::KernelAndModules,
+            attributes: 0,
+        }];
+        let modules = [
+            BootModule {
+                physical_base: 0x31_0000,
+                length: 0x2000,
+            },
+            BootModule {
+                physical_base: 0x31_1000,
+                length: 0x2000,
+            },
+        ];
+        let info = BootInfo {
+            memory_map: &memory_map,
+            kernel_image: KERNEL,
+            modules: &modules,
+            hhdm_offset: None,
+            framebuffer: None,
+        };
+        assert_eq!(
+            info.validate(),
+            Err(BootInfoError::OverlappingBootReservations)
+        );
+    }
+
+    #[test]
+    fn adjacent_kernel_module_map_regions_can_cover_one_reservation() {
+        let regions = [
+            MemoryRegion {
+                base: 0x2000,
+                length: 0x1000,
+                kind: MemoryRegionKind::KernelAndModules,
+                attributes: 0,
+            },
+            MemoryRegion {
+                base: 0x3000,
+                length: 0x1000,
+                kind: MemoryRegionKind::KernelAndModules,
+                attributes: 0,
+            },
+        ];
+        assert!(range_is_covered_by_kind(
+            &regions,
+            0x2800,
+            0x1000,
+            MemoryRegionKind::KernelAndModules
+        ));
     }
 }
