@@ -7,8 +7,7 @@
 use super::consume_limine_boot_info;
 use super::info::{BootModule, MemoryRegion, MemoryRegionKind};
 use super::limine::{
-    LimineExecutableAddressResponse, LimineHhdmResponse, LimineMemmapResponse,
-    LimineModuleResponse,
+    LimineExecutableAddressResponse, LimineHhdmResponse, LimineMemmapResponse, LimineModuleResponse,
 };
 use super::requests::{
     LIMINE_BASE_REVISION_TAG, LIMINE_EXECUTABLE_ADDRESS_REQUEST, LIMINE_HHDM_REQUEST,
