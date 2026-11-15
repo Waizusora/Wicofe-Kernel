@@ -194,21 +194,22 @@ Boot-critical drivers must be available before the boot phase that requires them
 
 ## 15. Initialization dependency outline
 
-1. Architecture entry and boot handoff validation.
-2. Early core and minimal HAL.
-3. PMM.
-4. Initial VMM and kernel mappings.
-5. Interrupt controller and timer.
-6. Kernel heap and synchronization foundations.
-7. Scheduler and idle threads.
-8. Process/thread services.
-9. IPC and security services.
-10. VFS core.
-11. DKM manager.
-12. Device discovery and required drivers.
-13. Root filesystem mount.
+1. Limine handoff validation through the architecture-specific entry adapter.
+2. Normalization of boot information and reservation of kernel/module ranges.
+3. Early core and minimal HAL.
+4. PMM.
+5. Initial VMM and kernel mappings.
+6. Interrupt controller and timer.
+7. Kernel heap and synchronization foundations.
+8. Scheduler and idle threads.
+9. Process/thread services.
+10. IPC and security services.
+11. VFS core.
+12. DKM manager.
+13. Device discovery and required drivers.
+14. Root filesystem mount.
 
-The final sequence must be adjusted for the selected boot protocol and platform. Circular dependencies must be resolved explicitly, not hidden by initialization order assumptions.
+The boot handoff contract is specified in [docs/BOOT_SPEC.md](BOOT_SPEC.md). The final sequence must be validated against each supported platform. Circular dependencies must be resolved explicitly, not hidden by initialization order assumptions.
 
 ## 16. Cross-subsystem contract rules
 
