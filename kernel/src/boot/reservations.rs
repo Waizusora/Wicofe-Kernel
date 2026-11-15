@@ -32,7 +32,6 @@ impl BootReservation {
 pub enum ReservationError {
     InvalidBootInfo(BootInfoError),
     InsufficientCapacity { required: usize, available: usize },
-    OverlappingReservations,
 }
 
 /// Build a complete reservation list in caller-owned storage.
@@ -47,7 +46,8 @@ pub fn build_boot_reservations(
 ) -> Result<usize, ReservationError> {
     info.validate().map_err(ReservationError::InvalidBootInfo)?;
 
-    let required = 1 + info.modules.len() + usize::from(info.framebuffer.is_some());
+    let framebuffer_count = if info.framebuffer.is_some() { 1 } else { 0 };
+    let required = 1 + info.modules.len() + framebuffer_count;
     if output.len() < required {
         return Err(ReservationError::InsufficientCapacity {
             required,
@@ -79,10 +79,6 @@ pub fn build_boot_reservations(
             kind: BootReservationKind::Framebuffer,
         };
         count += 1;
-    }
-
-    if !reservations_are_valid(&output[..count]) {
-        return Err(ReservationError::OverlappingReservations);
     }
 
     Ok(count)
@@ -135,26 +131,6 @@ fn range_is_covered_by_usable(regions: &[MemoryRegion], base: u64, end: u64) -> 
             return false;
         }
         cursor = furthest.min(end);
-    }
-    true
-}
-
-fn reservations_are_valid(reservations: &[BootReservation]) -> bool {
-    for (index, reservation) in reservations.iter().enumerate() {
-        let Some(end) = reservation.end() else {
-            return false;
-        };
-        if reservation.length == 0 {
-            return false;
-        }
-        for other in &reservations[..index] {
-            let Some(other_end) = other.end() else {
-                return false;
-            };
-            if reservation.base < other_end && other.base < end {
-                return false;
-            }
-        }
     }
     true
 }
