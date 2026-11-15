@@ -8,7 +8,7 @@ The complete license text is in the repository root at [LICENSE](../LICENSE).
 
 ## 2. Dependency policy
 
-The project policy is not to integrate GPL-, LGPL-, or AGPL-licensed code or dependencies.
+For Alternative The project policy is not to integrate GPL-, LGPL-, or AGPL-licensed code or dependencies.
 
 Permissive licenses such as MIT, ISC, BSD-2-Clause, BSD-3-Clause, and Apache-2.0 may be considered after review. Approval is not automatic.
 
