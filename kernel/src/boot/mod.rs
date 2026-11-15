@@ -3,11 +3,16 @@
 //! Protocol-specific response parsing belongs in isolated adapters. General
 //! kernel code should consume only validated WICOFE-owned structures.
 
+mod handoff;
 mod info;
 mod limine;
 mod requests;
 mod validate;
 
+#[cfg(target_os = "none")]
+mod entry;
+
+pub use handoff::{BootHandoffError, validate_limine_handoff};
 pub use info::{
     BootInfo, BootInfoError, BootModule, FramebufferInfo, KernelImage, KernelImageBoundsError,
     MemoryRegion, MemoryRegionKind,
