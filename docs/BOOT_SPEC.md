@@ -1,7 +1,7 @@
 # WICOFE Boot Foundation Specification
 
 - **Document:** BOOT_SPEC.md
-- **Version:** 1.4
+- **Version:** 1.5
 - **Status:** Initial boot architecture decision and adapter implementation notes
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
@@ -249,6 +249,33 @@ emit diagnostics. The entry trampolines are compiled only for
 The crate remains an `rlib`; there is no final kernel ELF target, panic
 handler, final Cargo linker integration, or QEMU boot test yet. Therefore
 these entry symbols and linker scripts are not yet proven in a bootable image.
+
+
+### 9.4 End-to-end normalized boot information consumption
+
+The new `kernel/src/boot/consume.rs` module exposes
+`consume_limine_boot_info`, an allocation-free orchestration boundary. It
+validates the base-revision and mandatory response-presence gate before
+calling the existing memory-map, HHDM, and executable-address adapters. It
+then validates the memory map, derives the kernel image extent from the
+linker-provided virtual bounds, and verifies that the executable-address
+response virtual base matches the linker start symbol.
+
+The module response is optional: a null response produces an empty module
+slice; a present response is normalized and checked using the HHDM offset.
+All output records are written into caller-provided fixed-capacity slices.
+The returned `BootInfo` borrows those slices, so their storage must remain
+alive and unmodified while the value is in use.
+
+This stage deliberately does not decode framebuffer details, copy module
+path/string metadata, install mappings, reserve physical ranges, reclaim
+bootloader memory, or initialize PMM/VMM. The unsafe caller must prove that
+response structures and nested pointers are mapped, readable, aligned, and
+live. Pointer nullness/alignment checks alone cannot establish memory safety.
+The bootstrap entry still does not call this function because linker symbol
+access, fixed-capacity early storage, and a diagnostic failure path have not
+yet been integrated into the final ELF entry.
+
 ## 10. Boot modules
 
 Boot modules may carry early drivers or other resources in future stages. Each module must have validated bounds, a defined identity/metadata format, and an explicit lifetime. Module bytes must remain reserved until consumed or copied. Boot modules are not automatically trusted merely because the bootloader loaded them.
