@@ -104,8 +104,13 @@ pub struct LimineModuleResponse {
 pub struct HhdmOffset(u64);
 
 impl HhdmOffset {
-    pub const fn new(value: u64) -> Self { Self(value) }
-    pub const fn get(self) -> u64 { self.0 }
+    pub const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    pub const fn get(self) -> u64 {
+        self.0
+    }
 }
 
 /// Normalized base addresses for the loaded executable image.
@@ -141,7 +146,9 @@ pub const fn normalize_memory_kind(kind: u64) -> MemoryRegionKind {
         LIMINE_MEMMAP_USABLE => MemoryRegionKind::Usable,
         LIMINE_MEMMAP_RESERVED => MemoryRegionKind::FirmwareReserved,
         LIMINE_MEMMAP_ACPI_RECLAIMABLE => MemoryRegionKind::FirmwareReclaimable,
-        LIMINE_MEMMAP_ACPI_NVS | LIMINE_MEMMAP_RESERVED_MAPPED => MemoryRegionKind::FirmwareReserved,
+        LIMINE_MEMMAP_ACPI_NVS | LIMINE_MEMMAP_RESERVED_MAPPED => {
+            MemoryRegionKind::FirmwareReserved
+        }
         LIMINE_MEMMAP_BAD_MEMORY => MemoryRegionKind::Bad,
         LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE => MemoryRegionKind::BootloaderReclaimable,
         LIMINE_MEMMAP_EXECUTABLE_AND_MODULES => MemoryRegionKind::KernelAndModules,
@@ -204,8 +211,7 @@ pub unsafe fn normalize_memory_map_response(
         };
     }
 
-    validate_memory_map(&output[..count])
-        .map_err(LimineAdapterError::InvalidMemoryMap)?;
+    validate_memory_map(&output[..count]).map_err(LimineAdapterError::InvalidMemoryMap)?;
     Ok(count)
 }
 
@@ -290,9 +296,7 @@ pub unsafe fn normalize_module_response(
     if count != 0 && response_value.modules.is_null() {
         return Err(LimineAdapterError::NullModules);
     }
-    if count != 0
-        && (response_value.modules as usize) % mem::align_of::<*const LimineFile>() != 0
-    {
+    if count != 0 && (response_value.modules as usize) % mem::align_of::<*const LimineFile>() != 0 {
         return Err(LimineAdapterError::MisalignedPointer);
     }
 
@@ -330,7 +334,8 @@ pub unsafe fn normalize_module_response(
             .ok_or(LimineAdapterError::ModuleRangeOverflow)?;
 
         for previous in &output[..index] {
-            let previous_end = previous.physical_base
+            let previous_end = previous
+                .physical_base
                 .checked_add(previous.length)
                 .ok_or(LimineAdapterError::ModuleRangeOverflow)?;
             if physical_base < previous_end && previous.physical_base < end {
@@ -366,9 +371,24 @@ mod tests {
             tftp_port: 0,
             partition_index: 0,
             mbr_disk_id: 0,
-            gpt_disk_uuid: LimineUuid { a: 0, b: 0, c: 0, d: [0; 8] },
-            gpt_part_uuid: LimineUuid { a: 0, b: 0, c: 0, d: [0; 8] },
-            part_uuid: LimineUuid { a: 0, b: 0, c: 0, d: [0; 8] },
+            gpt_disk_uuid: LimineUuid {
+                a: 0,
+                b: 0,
+                c: 0,
+                d: [0; 8],
+            },
+            gpt_part_uuid: LimineUuid {
+                a: 0,
+                b: 0,
+                c: 0,
+                d: [0; 8],
+            },
+            part_uuid: LimineUuid {
+                a: 0,
+                b: 0,
+                c: 0,
+                d: [0; 8],
+            },
         }
     }
 
@@ -376,10 +396,16 @@ mod tests {
     fn maps_known_memory_types_conservatively() {
         assert_eq!(normalize_memory_kind(0), MemoryRegionKind::Usable);
         assert_eq!(normalize_memory_kind(1), MemoryRegionKind::FirmwareReserved);
-        assert_eq!(normalize_memory_kind(2), MemoryRegionKind::FirmwareReclaimable);
+        assert_eq!(
+            normalize_memory_kind(2),
+            MemoryRegionKind::FirmwareReclaimable
+        );
         assert_eq!(normalize_memory_kind(3), MemoryRegionKind::FirmwareReserved);
         assert_eq!(normalize_memory_kind(4), MemoryRegionKind::Bad);
-        assert_eq!(normalize_memory_kind(5), MemoryRegionKind::BootloaderReclaimable);
+        assert_eq!(
+            normalize_memory_kind(5),
+            MemoryRegionKind::BootloaderReclaimable
+        );
         assert_eq!(normalize_memory_kind(6), MemoryRegionKind::KernelAndModules);
         assert_eq!(normalize_memory_kind(7), MemoryRegionKind::Device);
         assert_eq!(normalize_memory_kind(8), MemoryRegionKind::FirmwareReserved);
@@ -409,7 +435,10 @@ mod tests {
 
     #[test]
     fn normalizes_hhdm_offset_without_treating_it_as_physical() {
-        let response = LimineHhdmResponse { revision: 0, offset: HHDM };
+        let response = LimineHhdmResponse {
+            revision: 0,
+            offset: HHDM,
+        };
         // SAFETY: The local response is aligned, readable, and live.
         let offset = unsafe { normalize_hhdm_response(&response) }.unwrap();
         assert_eq!(offset, HhdmOffset::new(HHDM));
@@ -440,23 +469,37 @@ mod tests {
             module_count: 1,
             modules: pointers.as_ptr(),
         };
-        let mut output = [BootModule { physical_base: 0, length: 0 }];
+        let mut output = [BootModule {
+            physical_base: 0,
+            length: 0,
+        }];
         // SAFETY: Response, pointer array and file are local readable values.
-        let count = unsafe {
-            normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output)
-        }.unwrap();
+        let count =
+            unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) }
+                .unwrap();
         assert_eq!(count, 1);
-        assert_eq!(output[0], BootModule { physical_base: 0x40_0000, length: 0x3000 });
+        assert_eq!(
+            output[0],
+            BootModule {
+                physical_base: 0x40_0000,
+                length: 0x3000
+            }
+        );
     }
 
     #[test]
     fn accepts_empty_module_response_with_null_array() {
-        let response = LimineModuleResponse { revision: 0, module_count: 0, modules: core::ptr::null() };
+        let response = LimineModuleResponse {
+            revision: 0,
+            module_count: 0,
+            modules: core::ptr::null(),
+        };
         let mut output = [];
         // SAFETY: The local response is readable and aligned.
-        assert_eq!(unsafe {
-            normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output)
-        }, Ok(0));
+        assert_eq!(
+            unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
+            Ok(0)
+        );
     }
 
     #[test]
@@ -465,53 +508,90 @@ mod tests {
         file.address = (HHDM + 0x40_0000) as usize as *const u8;
         file.size = 0;
         let pointers = [&file as *const LimineFile];
-        let response = LimineModuleResponse { revision: 0, module_count: 1, modules: pointers.as_ptr() };
-        let mut output = [BootModule { physical_base: 0, length: 0 }];
+        let response = LimineModuleResponse {
+            revision: 0,
+            module_count: 1,
+            modules: pointers.as_ptr(),
+        };
+        let mut output = [BootModule {
+            physical_base: 0,
+            length: 0,
+        }];
         // SAFETY: All response objects are local and readable.
-        assert_eq!(unsafe {
-            normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output)
-        }, Err(LimineAdapterError::EmptyModule));
+        assert_eq!(
+            unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
+            Err(LimineAdapterError::EmptyModule)
+        );
 
         file.size = 0x1000;
         file.address = (HHDM + 0x40_0001) as usize as *const u8;
         // SAFETY: All response objects are local and readable.
-        assert_eq!(unsafe {
-            normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output)
-        }, Err(LimineAdapterError::MisalignedModuleAddress));
+        assert_eq!(
+            unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
+            Err(LimineAdapterError::MisalignedModuleAddress)
+        );
 
         file.address = 0x1000usize as *const u8;
         // SAFETY: All response objects are local and readable.
-        assert_eq!(unsafe {
-            normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output)
-        }, Err(LimineAdapterError::ModuleAddressOutsideHhdm));
+        assert_eq!(
+            unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
+            Err(LimineAdapterError::ModuleAddressOutsideHhdm)
+        );
     }
 
     #[test]
     fn rejects_null_and_misaligned_single_response_pointers() {
         // SAFETY: Null is rejected before dereferencing.
-        assert_eq!(unsafe { normalize_hhdm_response(core::ptr::null()) }, Err(LimineAdapterError::NullResponse));
+        assert_eq!(
+            unsafe { normalize_hhdm_response(core::ptr::null()) },
+            Err(LimineAdapterError::NullResponse)
+        );
         // SAFETY: Misalignment is rejected before dereferencing.
-        assert_eq!(unsafe { normalize_hhdm_response(1usize as *const LimineHhdmResponse) }, Err(LimineAdapterError::MisalignedPointer));
+        assert_eq!(
+            unsafe { normalize_hhdm_response(1usize as *const LimineHhdmResponse) },
+            Err(LimineAdapterError::MisalignedPointer)
+        );
         // SAFETY: Null is rejected before dereferencing.
-        assert_eq!(unsafe { normalize_executable_address_response(core::ptr::null()) }, Err(LimineAdapterError::NullResponse));
+        assert_eq!(
+            unsafe { normalize_executable_address_response(core::ptr::null()) },
+            Err(LimineAdapterError::NullResponse)
+        );
         // SAFETY: Misalignment is rejected before dereferencing.
-        assert_eq!(unsafe { normalize_executable_address_response(1usize as *const LimineExecutableAddressResponse) }, Err(LimineAdapterError::MisalignedPointer));
+        assert_eq!(
+            unsafe {
+                normalize_executable_address_response(
+                    1usize as *const LimineExecutableAddressResponse,
+                )
+            },
+            Err(LimineAdapterError::MisalignedPointer)
+        );
     }
 
     #[test]
     fn rejects_null_and_misaligned_memory_map_response_pointers() {
         // SAFETY: Null is rejected before dereferencing.
-        assert_eq!(unsafe { normalize_memory_map_response(core::ptr::null(), &mut []) }, Err(LimineAdapterError::NullResponse));
+        assert_eq!(
+            unsafe { normalize_memory_map_response(core::ptr::null(), &mut []) },
+            Err(LimineAdapterError::NullResponse)
+        );
         // SAFETY: Misalignment is rejected before dereferencing.
-        assert_eq!(unsafe { normalize_memory_map_response(1usize as *const LimineMemmapResponse, &mut []) }, Err(LimineAdapterError::MisalignedPointer));
+        assert_eq!(
+            unsafe {
+                normalize_memory_map_response(1usize as *const LimineMemmapResponse, &mut [])
+            },
+            Err(LimineAdapterError::MisalignedPointer)
+        );
     }
 
     #[test]
     fn rejects_null_module_response_pointer() {
         let mut output = [];
         // SAFETY: Null is rejected before dereferencing.
-        assert_eq!(unsafe {
-            normalize_module_response(core::ptr::null(), HhdmOffset::new(HHDM), &mut output)
-        }, Err(LimineAdapterError::NullResponse));
+        assert_eq!(
+            unsafe {
+                normalize_module_response(core::ptr::null(), HhdmOffset::new(HHDM), &mut output)
+            },
+            Err(LimineAdapterError::NullResponse)
+        );
     }
 }
