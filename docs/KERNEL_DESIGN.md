@@ -60,12 +60,13 @@ Architecture-specific code belongs under isolated architecture modules. Common p
 ## 5. Memory manager
 
 Initial components:
-- Physical Memory Manager (PMM).
-- Virtual Memory Manager (VMM).
-- Page-table management.
-- Kernel heap.
-- Address-space management.
-- Mapping and protection services.
+- Early bitmap-based frame tracking and bounded boot allocator.
+- Physical Memory Manager (PMM) using a WICOFE-managed buddy allocator, with bitmap and per-frame metadata.
+- Virtual Memory Manager (VMM) with architecture-specific page-table backends.
+- Slab/size-class kernel heap backed by page allocations.
+- Address-space management, mappings, and protection services.
+
+The selected Custom Hybrid Memory Manager architecture and its requirements are specified in [docs/MEMORY_MANAGEMENT_SPEC.md](MEMORY_MANAGEMENT_SPEC.md).
 
 Requirements:
 - Allocation ownership and lifetime must be explicit.
@@ -75,7 +76,7 @@ Requirements:
 - SMP-sensitive operations must be synchronized.
 - Physical address assumptions must be explicit and validated.
 
-PMM and the minimum VMM functionality precede most other dynamic kernel allocations.
+PMM and the minimum VMM functionality precede most other dynamic kernel allocations. The early allocator must hand off ownership cleanly to the main PMM; no physical frame may be simultaneously owned by two allocators.
 
 ## 6. Interrupt manager
 
