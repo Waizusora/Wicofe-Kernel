@@ -216,10 +216,7 @@ mod tests {
             assert_eq!(&request.id[..2], &LIMINE_COMMON_MAGIC);
             assert_eq!(request.revision, 0);
         }
-        assert_eq!(
-            &LIMINE_STACK_SIZE_REQUEST.id[..2],
-            &LIMINE_COMMON_MAGIC
-        );
+        assert_eq!(&LIMINE_STACK_SIZE_REQUEST.id[..2], &LIMINE_COMMON_MAGIC);
         assert!(LIMINE_MEMMAP_REQUEST.response_ptr().is_null());
         assert!(LIMINE_STACK_SIZE_REQUEST.response_ptr().is_null());
     }
