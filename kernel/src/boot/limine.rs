@@ -301,7 +301,7 @@ pub unsafe fn normalize_module_response(
     }
 
     const MODULE_ALIGNMENT: u64 = 4096;
-    for (index, slot) in output.iter_mut().take(count).enumerate() {
+    for index in 0..count {
         // SAFETY: The caller guarantees an array with at least count entries.
         let file_pointer = unsafe { ptr::read(response_value.modules.add(index)) };
         if file_pointer.is_null() {
