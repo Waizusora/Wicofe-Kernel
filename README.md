@@ -1,6 +1,6 @@
 # WICOFE
 
-WICOFE is an independent Unix-like operating system project. Its kernel is designed as a configurable monolithic kernel, written primarily in Rust `no_std`, with Assembly reserved for architecture-specific low-level operations.
+WICOFE is an Unix-like operating system project. Its kernel is designed as a configurable monolithic kernel, written primarily in Rust `no_std`, with Assembly reserved for architecture-specific low-level operations.
 
 ## Project goals
 
@@ -10,8 +10,6 @@ WICOFE is an independent Unix-like operating system project. Its kernel is desig
 - Virtual Filesystem (VFS), native ONWFS filesystem, and built-in FAT32 support.
 - Unix-like interfaces and a long-term POSIX compatibility objective.
 - Original project code licensed under MPL-2.0.
-
-WICOFE is an independent implementation. It is not a Linux or BSD derivative.
 
 ## Current status
 
