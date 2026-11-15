@@ -1,7 +1,7 @@
 # WICOFE Boot Foundation Specification
 
 - **Document:** BOOT_SPEC.md
-- **Version:** 1.3
+- **Version:** 1.4
 - **Status:** Initial boot architecture decision and adapter implementation notes
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
@@ -189,24 +189,27 @@ Separate linker scripts are expected for x86-64 and AArch64.
 
 ### 9.1 Kernel image extent discovery
 
-The normalized KernelImage length is derived from the linker-defined virtual
-image boundaries, not guessed from a fixed size or from the Limine executable
-address response. The architecture linker scripts are expected to export:
+Architecture-specific linker scripts now define the kernel image boundaries:
 
-- __kernel_start: first byte of the linked kernel image.
-- __kernel_end: exclusive end of the linked kernel image.
+- `linker/x86_64.ld`: x86-64 ELF64 higher-half layout.
+- `linker/aarch64.ld`: AArch64 ELF64 higher-half layout.
+- `__kernel_start`: first byte of the linked image.
+- `__kernel_end`: exclusive end of the image, page-aligned after BSS.
 
-The entry layer will read these symbol addresses and pass them, together with
-the physical load base from Limine's executable-address response, to
-KernelImage::from_linker_bounds. The constructor rejects empty/reversed
-virtual bounds and physical-range overflow.
+Both scripts divide loadable segments into RX text, read-only data, and RW data/BSS program headers. Limine request-section input ranges are retained in the read-only segment. Load memory addresses are image-relative; runtime physical and virtual bases are supplied by Limine's executable-address response.
 
-This milestone implements and tests the range derivation contract only. The
-repository does not yet contain linker scripts or entry code, so the symbols
-are not currently emitted or read at runtime. The physical base supplied to
-the constructor must correspond to __kernel_start; the final linker layout
-must preserve that correspondence on both architectures.
+The entry layer must read the linker symbol addresses and call
+`KernelImage::from_linker_bounds` with the physical base corresponding to
+`__kernel_start`. The constructor derives the extent and rejects empty or
+reversed virtual bounds and physical-range overflow.
 
+This milestone adds linker layouts and the tested range-derivation contract.
+The crate is still an `rlib`: there is no `_start` implementation, no
+architecture entry assembly, and no target-specific final link invocation.
+Therefore these scripts are not yet used by the Cargo build, and the symbols
+are not yet read at runtime. The chosen virtual bases and ELF program-header
+layout must be validated with actual Limine-linked images before being treated
+as a stable boot ABI.
 
 ## 10. Boot modules
 
