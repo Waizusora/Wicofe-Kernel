@@ -1,7 +1,7 @@
 # WICOFE Boot Foundation Specification
 
 - **Document:** BOOT_SPEC.md
-- **Version:** 1.5
+- **Version:** 1.6
 - **Status:** Initial boot architecture decision and adapter implementation notes
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
@@ -152,6 +152,33 @@ The memory-map parser must:
 - Preserve region boundaries and attributes needed for later zone and DMA policy.
 
 The boot memory map is input to the WICOFE Custom Hybrid Memory Manager. It does not itself establish allocator ownership.
+
+
+### 6.1 Early reservation validation
+
+Before PMM initialization, `BootInfo::validate` now enforces the physical
+ownership boundary for the kernel image and boot modules:
+
+- The complete kernel image range must be covered by memory-map entries of
+  kind `KernelAndModules`, which corresponds to Limine's
+  Executable and Modules memory type.
+- Every module range must be covered by the same kind. A range outside the
+  map, in `Usable` RAM, or in any firmware/device/reserved class is rejected.
+- Adjacent `KernelAndModules` entries may jointly cover one image/module
+  range, but a gap or a different memory kind may not.
+- Kernel and module reservations must not overlap one another. Module
+  reservations must also be pairwise disjoint.
+- Range-end arithmetic is checked before containment is evaluated. The
+  overlap comparisons are only performed after the corresponding ranges have
+  passed overflow validation.
+
+This is validation, not yet a PMM reservation allocator: the original
+memory-map entries are not split or rewritten, and no memory is marked free.
+The future PMM bootstrap must consume these validated kernel/module ranges as
+reserved exclusions, along with boot information, framebuffer/MMIO, firmware,
+and other non-usable ranges. Bootloader-reclaimable memory remains unavailable
+until all protocol response structures and metadata have been copied or
+consumed and no references remain.
 
 ## 7. x86-64 entry obligations
 
