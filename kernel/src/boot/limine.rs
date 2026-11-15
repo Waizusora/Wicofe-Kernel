@@ -506,7 +506,7 @@ mod tests {
     fn rejects_invalid_module_descriptors() {
         let mut empty = empty_file();
         empty.address = (HHDM + 0x40_0000) as usize as *const u8;
-        let empty.size = 0;
+        empty.size = 0;
         let empty_pointers = [&empty as *const LimineFile];
         let empty_response = LimineModuleResponse {
             revision: 0,
