@@ -6,11 +6,11 @@
 use core::ffi::c_void;
 
 use super::{
-    BootHandoffError, BootInfo, BootInfoError, BootModule, KernelImage,
-    KernelImageBoundsError, LimineAdapterError, LimineExecutableAddressResponse,
-    LimineHhdmResponse, LimineMemmapResponse, LimineModuleResponse, MemoryRegion,
-    normalize_executable_address_response, normalize_hhdm_response,
-    normalize_memory_map_response, normalize_module_response, validate_limine_handoff,
+    BootHandoffError, BootInfo, BootInfoError, BootModule, KernelImage, KernelImageBoundsError,
+    LimineAdapterError, LimineExecutableAddressResponse, LimineHhdmResponse, LimineMemmapResponse,
+    LimineModuleResponse, MemoryRegion, normalize_executable_address_response,
+    normalize_hhdm_response, normalize_memory_map_response, normalize_module_response,
+    validate_limine_handoff,
 };
 
 /// Failures while assembling normalized boot information from Limine.
@@ -63,23 +63,20 @@ pub unsafe fn consume_limine_boot_info<'a>(
     .map_err(LimineBootInfoError::Handoff)?;
 
     // SAFETY: The caller upholds the response-pointer contract above.
-    let hhdm = unsafe { normalize_hhdm_response(hhdm_response) }
-        .map_err(LimineBootInfoError::Hhdm)?;
+    let hhdm =
+        unsafe { normalize_hhdm_response(hhdm_response) }.map_err(LimineBootInfoError::Hhdm)?;
     // SAFETY: The caller upholds the response-pointer contract above.
-    let executable = unsafe {
-        normalize_executable_address_response(executable_address_response)
-    }
-    .map_err(LimineBootInfoError::ExecutableAddress)?;
+    let executable = unsafe { normalize_executable_address_response(executable_address_response) }
+        .map_err(LimineBootInfoError::ExecutableAddress)?;
 
     if executable.virtual_base.get() != linker_virtual_start {
         return Err(LimineBootInfoError::ExecutableVirtualBaseMismatch);
     }
 
     // SAFETY: The caller upholds the response-pointer contract above.
-    let memory_map_count = unsafe {
-        normalize_memory_map_response(memory_map_response, memory_map_storage)
-    }
-    .map_err(LimineBootInfoError::MemoryMap)?;
+    let memory_map_count =
+        unsafe { normalize_memory_map_response(memory_map_response, memory_map_storage) }
+            .map_err(LimineBootInfoError::MemoryMap)?;
     if memory_map_count == 0 {
         return Err(LimineBootInfoError::EmptyMemoryMap);
     }
