@@ -8,7 +8,7 @@ use core::{mem, ptr};
 
 use crate::memory::{PhysAddr, VirtAddr};
 
-use super::{validate_memory_map, BootModule, MemoryMapError, MemoryRegion, MemoryRegionKind};
+use super::{BootModule, MemoryMapError, MemoryRegion, MemoryRegionKind, validate_memory_map};
 
 pub const LIMINE_MEMMAP_USABLE: u64 = 0;
 pub const LIMINE_MEMMAP_RESERVED: u64 = 1;
