@@ -1,7 +1,7 @@
 # WICOFE Memory Management Specification
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
-- **Version:** 1.0
+- **Version:** 1.1
 - **Status:** Design baseline (implementation parameters remain open)
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
@@ -64,6 +64,31 @@ Memory regions are classified at minimum as:
 - Bad, unknown, or explicitly unavailable memory.
 
 Unknown or malformed regions are treated conservatively as unavailable. Reclaimable regions become usable only after the kernel has completed the relevant handoff and explicitly releases them.
+
+
+### 4.1.1 Explicit early boot reservations
+
+The boot boundary materializes a bounded reservation list in caller-owned
+storage before PMM initialization. The initial reservation kinds are:
+
+- `KernelImage`: the complete physical kernel image extent.
+- `BootModule`: each active boot-loaded module extent.
+- `Framebuffer`: the framebuffer physical byte range, when decoded.
+
+The list is an exclusion ledger, not an allocator and not a rewritten memory
+map. The PMM may consider a candidate range allocatable only when it is fully
+covered by `Usable` memory and does not intersect any reservation. Unknown,
+reserved, device, firmware-reclaimable, bootloader-reclaimable, and
+kernel/module memory-map classes remain unavailable regardless of the
+reservation list.
+
+The builder validates the complete `BootInfo` before writing and reports
+insufficient caller capacity explicitly. Framebuffer ranges must be covered
+by `Device` memory-map entries. Reservations must be non-empty, non-overflowing,
+and mutually disjoint. This early list does not yet account for every
+bootloader response structure or static bootstrap buffer: those remain
+protected by their enclosing memory-map ownership class (or kernel image)
+until their physical backing ranges can be identified and explicitly tracked.
 
 ### 4.2 Early allocator
 
