@@ -142,6 +142,7 @@ impl BootInfo<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::assert_eq;
 
     const KERNEL: KernelImage = KernelImage {
         physical_base: 0x20_0000,
