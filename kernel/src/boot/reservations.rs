@@ -32,7 +32,6 @@ impl BootReservation {
 pub enum ReservationError {
     InvalidBootInfo(BootInfoError),
     InsufficientCapacity { required: usize, available: usize },
-    InvalidReservationRange,
     OverlappingReservations,
 }
 
@@ -110,9 +109,7 @@ pub fn is_usable_unreserved_range(
         let Some(reservation_end) = reservation.end() else {
             return false;
         };
-        if reservation.length == 0
-            || (base < reservation_end && reservation.base < end)
-        {
+        if reservation.length == 0 || (base < reservation_end && reservation.base < end) {
             return false;
         }
     }
@@ -191,11 +188,29 @@ mod tests {
     #[test]
     fn builds_kernel_module_and_framebuffer_reservations() {
         let memory_map = [
-            MemoryRegion { base: 0x1000, length: 0x1000, kind: MemoryRegionKind::Usable, attributes: 0 },
-            MemoryRegion { base: 0x20_0000, length: 0x40_0000, kind: MemoryRegionKind::KernelAndModules, attributes: 0 },
-            MemoryRegion { base: 0x8000_0000, length: 0x20_000, kind: MemoryRegionKind::Device, attributes: 0 },
+            MemoryRegion {
+                base: 0x1000,
+                length: 0x1000,
+                kind: MemoryRegionKind::Usable,
+                attributes: 0,
+            },
+            MemoryRegion {
+                base: 0x20_0000,
+                length: 0x40_0000,
+                kind: MemoryRegionKind::KernelAndModules,
+                attributes: 0,
+            },
+            MemoryRegion {
+                base: 0x8000_0000,
+                length: 0x20_000,
+                kind: MemoryRegionKind::Device,
+                attributes: 0,
+            },
         ];
-        let modules = [BootModule { physical_base: 0x31_0000, length: 0x2000 }];
+        let modules = [BootModule {
+            physical_base: 0x31_0000,
+            length: 0x2000,
+        }];
         let framebuffer = Some(FramebufferInfo {
             physical_base: 0x8000_0000,
             byte_length: 0x20_000,
@@ -229,12 +244,19 @@ mod tests {
         }];
         let modules = [BootModule { physical_base: 0x31_0000, length: 0x2000 }];
         let info = sample_info(&memory_map, &modules, None);
-        let sentinel = BootReservation { base: 7, length: 9, kind: BootReservationKind::BootModule };
+        let sentinel = BootReservation {
+            base: 7,
+            length: 9,
+            kind: BootReservationKind::BootModule,
+        };
         let mut output = [sentinel; 1];
 
         assert_eq!(
             build_boot_reservations(&info, &mut output),
-            Err(ReservationError::InsufficientCapacity { required: 2, available: 1 })
+            Err(ReservationError::InsufficientCapacity {
+                required: 2,
+                available: 1,
+            })
         );
         assert_eq!(output, [sentinel]);
     }
@@ -253,18 +275,53 @@ mod tests {
             kind: BootReservationKind::BootModule,
         }];
 
-        assert!(is_usable_unreserved_range(&memory_map, &reservations, 0x1000, 0x1000));
-        assert!(!is_usable_unreserved_range(&memory_map, &reservations, 0x2800, 0x1000));
-        assert!(!is_usable_unreserved_range(&memory_map, &reservations, 0x8000, 0x2000));
-        assert!(!is_usable_unreserved_range(&memory_map, &reservations, u64::MAX - 3, 8));
+        assert!(is_usable_unreserved_range(
+            &memory_map,
+            &reservations,
+            0x1000,
+            0x1000
+        ));
+        assert!(!is_usable_unreserved_range(
+            &memory_map,
+            &reservations,
+            0x2800,
+            0x1000
+        ));
+        assert!(!is_usable_unreserved_range(
+            &memory_map,
+            &reservations,
+            0x8000,
+            0x2000
+        ));
+        assert!(!is_usable_unreserved_range(
+            &memory_map,
+            &reservations,
+            u64::MAX - 3,
+            8
+        ));
     }
 
     #[test]
     fn adjacent_usable_regions_can_cover_candidate() {
         let memory_map = [
-            MemoryRegion { base: 0x1000, length: 0x1000, kind: MemoryRegionKind::Usable, attributes: 0 },
-            MemoryRegion { base: 0x2000, length: 0x1000, kind: MemoryRegionKind::Usable, attributes: 0 },
+            MemoryRegion {
+                base: 0x1000,
+                length: 0x1000,
+                kind: MemoryRegionKind::Usable,
+                attributes: 0,
+            },
+            MemoryRegion {
+                base: 0x2000,
+                length: 0x1000,
+                kind: MemoryRegionKind::Usable,
+                attributes: 0,
+            },
         ];
-        assert!(is_usable_unreserved_range(&memory_map, &[], 0x1800, 0x1000));
+        assert!(is_usable_unreserved_range(
+            &memory_map,
+            &[],
+            0x1800,
+            0x1000
+        ));
     }
 }
