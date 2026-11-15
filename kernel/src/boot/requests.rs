@@ -40,6 +40,18 @@ pub struct BaseRevisionTag {
 // revision cell is the only field the bootloader is permitted to update.
 unsafe impl Sync for BaseRevisionTag {}
 
+impl BaseRevisionTag {
+    /// Returns whether Limine accepted the requested base revision.
+    ///
+    /// This is valid after the bootloader has processed the request and before
+    /// any code attempts to rely on revision-specific guarantees.
+    pub fn is_supported(&self) -> bool {
+        // SAFETY: The bootloader writes this field before transferring control;
+        // the kernel reads it only after the handoff.
+        unsafe { *self.revision.get() == 0 }
+    }
+}
+
 /// Common request ABI prefix used by the selected Limine features.
 #[repr(C)]
 pub struct LimineRequest {
@@ -52,6 +64,17 @@ pub struct LimineRequest {
 // bootloader fills it before entry. The other fields are immutable.
 unsafe impl Sync for LimineRequest {}
 
+impl LimineRequest {
+    /// Read the response pointer populated by Limine.
+    ///
+    /// A non-null result is not proof that the pointed-to memory is readable;
+    /// the caller must validate the response under the boot handoff contract.
+    pub fn response_ptr(&self) -> *mut c_void {
+        // SAFETY: Limine writes the cell before entry; callers read it after entry.
+        unsafe { *self.response.get() }
+    }
+}
+
 /// Request ABI for Limine's stack-size feature.
 #[repr(C)]
 pub struct LimineStackSizeRequest {
@@ -63,6 +86,14 @@ pub struct LimineStackSizeRequest {
 
 // SAFETY: The response pointer is intentionally interior-mutable.
 unsafe impl Sync for LimineStackSizeRequest {}
+
+impl LimineStackSizeRequest {
+    /// Read the response pointer populated by Limine.
+    pub fn response_ptr(&self) -> *mut c_void {
+        // SAFETY: Limine writes the cell before entry; callers read it after entry.
+        unsafe { *self.response.get() }
+    }
+}
 
 #[used]
 #[unsafe(link_section = ".limine_requests_start")]
@@ -146,6 +177,7 @@ mod tests {
         assert_eq!(size_of::<BaseRevisionTag>(), 24);
         assert_eq!(align_of::<BaseRevisionTag>(), 8);
         assert_eq!(LIMINE_BASE_REVISION, 6);
+        assert!(!LIMINE_BASE_REVISION_TAG.is_supported());
     }
 
     #[test]
@@ -161,5 +193,7 @@ mod tests {
             assert_eq!(request.revision, 0);
         }
         assert_eq!(&LIMINE_STACK_SIZE_REQUEST.id[..2], &LIMINE_COMMON_MAGIC);
+        assert!(LIMINE_MEMMAP_REQUEST.response_ptr().is_null());
+        assert!(LIMINE_STACK_SIZE_REQUEST.response_ptr().is_null());
     }
 }
