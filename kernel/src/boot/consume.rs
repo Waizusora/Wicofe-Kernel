@@ -135,11 +135,11 @@ mod tests {
                 &mut module_storage,
             )
         };
-        assert_eq!(
+        assert!(matches!(
             result,
             Err(LimineBootInfoError::Handoff(
                 BootHandoffError::MissingMemoryMapResponse
             ))
-        );
+        ));
     }
 }
