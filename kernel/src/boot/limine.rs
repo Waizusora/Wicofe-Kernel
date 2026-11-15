@@ -504,49 +504,71 @@ mod tests {
 
     #[test]
     fn rejects_invalid_module_descriptors() {
-        let mut file = empty_file();
-        file.address = (HHDM + 0x40_0000) as usize as *const u8;
-        file.size = 0;
-        let pointers = [&file as *const LimineFile];
-        let response = LimineModuleResponse {
+        let mut empty = empty_file();
+        empty.address = (HHDM + 0x40_0000) as usize as *const u8;
+        let empty.size = 0;
+        let empty_pointers = [&empty as *const LimineFile];
+        let empty_response = LimineModuleResponse {
             revision: 0,
             module_count: 1,
-            modules: pointers.as_ptr(),
+            modules: empty_pointers.as_ptr(),
         };
+
         let mut output = [BootModule {
             physical_base: 0,
             length: 0,
         }];
         // SAFETY: All response objects are local and readable.
         assert_eq!(
-            unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
+            unsafe {
+                normalize_module_response(
+                    &empty_response,
+                    HhdmOffset::new(HHDM),
+                    &mut output,
+                )
+            },
             Err(LimineAdapterError::EmptyModule)
         );
 
-        file.size = 0x1000;
-        file.address = (HHDM + 0x40_0001) as usize as *const u8;
-        let pointers = [&file as *const LimineFile];
-        let response = LimineModuleResponse {
+        let mut misaligned = empty_file();
+        misaligned.address = (HHDM + 0x40_0001) as usize as *const u8;
+        misaligned.size = 0x1000;
+        let misaligned_pointers = [&misaligned as *const LimineFile];
+        let misaligned_response = LimineModuleResponse {
             revision: 0,
             module_count: 1,
-            modules: pointers.as_ptr(),
+            modules: misaligned_pointers.as_ptr(),
         };
         // SAFETY: All response objects are local and readable.
         assert_eq!(
-            unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
+            unsafe {
+                normalize_module_response(
+                    &misaligned_response,
+                    HhdmOffset::new(HHDM),
+                    &mut output,
+                )
+            },
             Err(LimineAdapterError::MisalignedModuleAddress)
         );
 
-        file.address = 0x1000usize as *const u8;
-        let pointers = [&file as *const LimineFile];
-        let response = LimineModuleResponse {
+        let mut outside_hhdm = empty_file();
+        outside_hhdm.address = 0x1000usize as *const u8;
+        outside_hhdm.size = 0x1000;
+        let outside_pointers = [&outside_hhdm as *const LimineFile];
+        let outside_response = LimineModuleResponse {
             revision: 0,
             module_count: 1,
-            modules: pointers.as_ptr(),
+            modules: outside_pointers.as_ptr(),
         };
         // SAFETY: All response objects are local and readable.
         assert_eq!(
-            unsafe { normalize_module_response(&response, HhdmOffset::new(HHDM), &mut output) },
+            unsafe {
+                normalize_module_response(
+                    &outside_response,
+                    HhdmOffset::new(HHDM),
+                    &mut output,
+                )
+            },
             Err(LimineAdapterError::ModuleAddressOutsideHhdm)
         );
     }
