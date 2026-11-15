@@ -232,9 +232,7 @@ impl BootInfo<'_> {
             }
             for module in self.modules {
                 let module_end = module.physical_base + module.length;
-                if framebuffer.physical_base < module_end
-                    && module.physical_base < framebuffer_end
-                {
+                if framebuffer.physical_base < module_end && module.physical_base < framebuffer_end {
                     return Err(BootInfoError::OverlappingBootReservations);
                 }
             }
