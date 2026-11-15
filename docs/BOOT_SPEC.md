@@ -1,7 +1,7 @@
 # WICOFE Boot Foundation Specification
 
 - **Document:** BOOT_SPEC.md
-- **Version:** 1.6
+- **Version:** 1.7
 - **Status:** Initial boot architecture decision and adapter implementation notes
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
@@ -179,6 +179,28 @@ reserved exclusions, along with boot information, framebuffer/MMIO, firmware,
 and other non-usable ranges. Bootloader-reclaimable memory remains unavailable
 until all protocol response structures and metadata have been copied or
 consumed and no references remain.
+
+
+### 6.2 Explicit early reservation ledger
+
+`kernel/src/boot/reservations.rs` builds a bounded reservation ledger from
+validated `BootInfo` without allocation. It records the kernel image, each
+boot module, and the framebuffer when present. Framebuffer physical bytes must
+be covered by a `Device` memory-map region; the framebuffer may not overlap
+the kernel or a module.
+
+The PMM-facing range predicate accepts a range only when it is completely
+covered by `Usable` memory and does not intersect any explicit reservation.
+This predicate is a conservative eligibility check, not a frame allocator.
+Every non-`Usable` memory kind remains unavailable independently. In
+particular, bootloader-reclaimable and firmware-reclaimable memory are not
+released by this stage.
+
+The ledger uses caller-provided capacity and reports exhaustion. It does not
+split or mutate the Limine memory map, reserve the backing pages of response
+structures separately, or initialize PMM. Boot protocol response storage and
+the static bootstrap buffers remain protected by their current backing
+memory ownership until physical extents and lifetimes are tracked explicitly.
 
 ## 7. x86-64 entry obligations
 
