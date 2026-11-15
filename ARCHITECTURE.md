@@ -87,7 +87,7 @@ The initial subsystem boundaries are:
 
 - **Core:** lifecycle, initialization ordering, configuration, panic and logging interfaces.
 - **HAL:** architecture and platform primitives.
-- **Memory manager:** physical and virtual memory, page allocation, kernel heap, address spaces, mappings, and protection.
+- **Memory manager:** a Custom Hybrid Memory Manager comprising an early bitmap-based allocator, a buddy-based PMM with bitmap/frame metadata, an architecture-backed VMM, and a slab/size-class kernel heap. See [docs/MEMORY_MANAGEMENT_SPEC.md](docs/MEMORY_MANAGEMENT_SPEC.md).
 - **Interrupt manager:** interrupt registration and dispatch, exception handling, and interrupt-context rules.
 - **Scheduler:** runnable threads, scheduling policy, CPU selection, and context switching.
 - **Process/thread manager:** lifecycle, address-space association, resource ownership, and process relationships.
@@ -184,7 +184,7 @@ A successful compilation alone does not establish correctness or completion. Arc
 
 1. Architecture baseline and subsystem contracts.
 2. Rust workspace, boot foundation, and HAL.
-3. Physical and virtual memory.
+3. Custom Hybrid Memory Manager: early allocator, buddy PMM, VMM, and kernel heap.
 4. Interrupts, timers, and CPU management.
 5. Scheduler and process/thread lifecycle.
 6. Syscall ABI and IPC.
@@ -203,7 +203,7 @@ The following are deliberately not frozen by this baseline:
 
 - Bootloader and boot protocol.
 - Minimum CPU features and platform profiles.
-- Physical memory allocation strategy.
+- PMM implementation parameters (buddy order limits, metadata encoding, zones, and synchronization).
 - Virtual address-space layout.
 - Scheduler algorithm and policy model.
 - Syscall numbering and calling conventions.
