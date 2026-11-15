@@ -1,8 +1,8 @@
 # WICOFE Boot Foundation Specification
 
 - **Document:** BOOT_SPEC.md
-- **Version:** 1.0
-- **Status:** Initial boot architecture decision
+- **Version:** 1.1
+- **Status:** Initial boot architecture decision and adapter implementation notes
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
 - **Kernel language:** Rust `no_std`
@@ -55,7 +55,9 @@ Suggested source organization:
 kernel/src/
 ├── boot/
 │   ├── mod.rs
-│   └── info.rs
+│   ├── info.rs
+│   ├── validate.rs
+│   └── limine.rs
 ├── arch/
 │   ├── mod.rs
 │   ├── x86_64/
@@ -83,6 +85,34 @@ The normalized data model must eventually include:
 Protocol response pointers refer to bootloader-managed memory. The kernel must validate every pointer and range before dereferencing it. Bootloader-reclaimable data must be copied or fully consumed before its memory is released to PMM. No pointer into reclaimable bootloader memory may remain live after reclamation.
 
 Physical addresses and virtual addresses must use distinct types or otherwise be kept unambiguously separate. HHDM addresses are virtual addresses; the offset must not be added twice.
+
+### 5.1 Limine memory-map response adapter
+
+The Limine memory-map response contains a revision, an entry count, and a pointer to an array of pointers to memory-map entries. Each entry contains a physical base, length, and numeric type. WICOFE mirrors only these response structures in `kernel/src/boot/limine.rs`; the rest of the kernel uses `MemoryRegion`.
+
+The current adapter:
+- Copies response entries into caller-provided storage; it does not allocate.
+- Checks null pointers, pointer alignment, count conversion, output capacity, zero-length ranges, arithmetic overflow, and overlapping ranges.
+- Maps known Limine types into WICOFE memory kinds.
+- Preserves unknown future types as `Unknown`, which must never be returned as allocatable RAM.
+- Does not claim that a non-null pointer is mapped or readable. The unsafe caller must establish pointer validity and lifetime from the boot handoff contract.
+
+Type mapping:
+
+| Limine type | WICOFE kind |
+|---|---|
+| Usable | `Usable` |
+| Reserved | `FirmwareReserved` |
+| ACPI reclaimable | `FirmwareReclaimable` |
+| ACPI NVS | `FirmwareReserved` |
+| Bad memory | `Bad` |
+| Bootloader reclaimable | `BootloaderReclaimable` |
+| Executable and modules | `KernelAndModules` |
+| Framebuffer | `Device` |
+| Reserved mapped | `FirmwareReserved` |
+| Unknown future value | `Unknown` |
+
+This adapter is a response decoder, not yet a complete boot integration. Request-section registration, linker retention, executable-address/kernel-image sizing, module response parsing, HHDM validation, and architecture entry assembly remain separate work. The Limine protocol specification is the authority for ABI field order and memory-map type values.
 
 ## 6. Memory map and reservations
 
