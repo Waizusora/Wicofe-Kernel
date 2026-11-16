@@ -20,6 +20,9 @@ pub struct PmmMetadataLayout {
     pub tracked_frames: u64,
     /// Bitmap capacity in bytes, rounded up to a whole byte.
     pub bitmap_bytes: u64,
+    /// Byte offset of the per-frame metadata array from `physical_base`.
+    /// This is aligned for `FrameMetadata` (8 bytes).
+    pub frame_metadata_offset: u64,
     /// Per-frame metadata capacity in bytes.
     pub frame_metadata_bytes: u64,
 }
@@ -91,7 +94,11 @@ pub fn plan_pmm_metadata_placement(
     let frame_metadata_bytes = total_frames
         .checked_mul(frame_metadata_size.get())
         .ok_or(PmmMetadataError::ArithmeticOverflow)?;
-    let raw_bytes = bitmap_bytes
+    // FrameMetadata is repr(C) with 8-byte alignment. Keep the physical
+    // metadata start suitably aligned even when bitmap_bytes is not.
+    let frame_metadata_offset =
+        align_up(bitmap_bytes, 8).ok_or(PmmMetadataError::ArithmeticOverflow)?;
+    let raw_bytes = frame_metadata_offset
         .checked_add(frame_metadata_bytes)
         .ok_or(PmmMetadataError::ArithmeticOverflow)?;
     let reserved_length = align_up(raw_bytes, page).ok_or(PmmMetadataError::ArithmeticOverflow)?;
@@ -148,6 +155,7 @@ pub fn plan_pmm_metadata_placement(
             reserved_length,
             tracked_frames: total_frames,
             bitmap_bytes,
+            frame_metadata_offset,
             frame_metadata_bytes,
         },
         written,
