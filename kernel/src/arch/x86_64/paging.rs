@@ -556,11 +556,9 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         )
         .map_err(PageTableHierarchyError::Paging)?;
 
-        while count > 0 {
-            count -= 1;
-            if let Some((parent, index, child)) = reclaim[count] {
-                self.reclaim_empty_child(parent, index, child)?;
-            }
+        for position in reclaim.iter().take(count).flatten() {
+            let (parent, index, child) = *position;
+            self.reclaim_empty_child(parent, index, child)?;
         }
         Ok(())
     }
