@@ -12,6 +12,7 @@ This directory is exclusively for Wicofe kernel architecture, implementation con
 - [VFS and filesystem integration](FILESYSTEM_SPEC.md)
 - [Memory management](MEMORY_MANAGEMENT_SPEC.md)
 - [Boot protocol and handoff](BOOT_SPEC.md)
+- [OSynit PID 1 kernel requirements 0.1](OSYNIT_PID1_KERNEL_REQUIREMENTS_0.1.md) — kernel mechanism and conformance boundary.
 - [OSynit PID 1 kernel requirements 0.1](OSYNIT_PID1_KERNEL_REQUIREMENTS_0.1.md) — proposed kernel mechanisms and conformance boundary.
 - [x86-64 kernel image](X86_64_KERNEL_IMAGE.md)
 
