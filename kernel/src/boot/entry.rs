@@ -203,10 +203,7 @@ fn verify_pmm_alloc_free(pmm: &mut Pmm<'_>) -> bool {
         Err(_) => false,
     };
     let released = pmm.free_frame(frame).is_ok();
-    metadata_valid
-        && released
-        && pmm.free_frames() == free_before
-        && pmm.allocated_frames() == 0
+    metadata_valid && released && pmm.free_frames() == free_before && pmm.allocated_frames() == 0
 }
 
 /// Rust entry called by the architecture-specific _start trampoline.
