@@ -566,6 +566,31 @@ mod tests {
     }
 
     #[test]
+    fn hhdm_page_table_accessor_rejects_invalid_table_addresses_without_dereferencing() {
+        // SAFETY: This test only exercises rejected inputs; no table memory is accessed.
+        let memory = unsafe { HhdmPageTableMemory::new(0xffff_8000_0000_0000, 32) }.unwrap();
+
+        assert_eq!(memory.read_entry(PhysAddr::new(0x1000), 512), None);
+        assert_eq!(memory.read_entry(PhysAddr::new(0x1001), 0), None);
+        assert_eq!(memory.read_entry(PhysAddr::new(1u64 << 32), 0), None);
+
+        // A valid physical table whose HHDM alias would overflow is also rejected.
+        // SAFETY: The overflowing alias is rejected before any pointer is dereferenced.
+        let overflowing =
+            unsafe { HhdmPageTableMemory::new(u64::MAX - 0x7ff, 48) }.unwrap();
+        assert_eq!(overflowing.read_entry(PhysAddr::new(0x1000), 0), None);
+    }
+
+    #[test]
+    fn hhdm_page_table_accessor_rejects_invalid_physical_width() {
+        // SAFETY: Constructor validation returns before the accessor can be used.
+        assert!(matches!(
+            unsafe { HhdmPageTableMemory::new(0xffff_8000_0000_0000, 53) },
+            Err(X86PagingError::InvalidPhysicalAddressWidth)
+        ));
+    }
+
+    #[test]
     fn user_leaf_requires_user_access_at_every_intermediate_level() {
         let mut tables = synthetic_four_level_tables();
         let root = PhysAddr::new(0x1000);
