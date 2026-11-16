@@ -485,6 +485,110 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         result
     }
 
+    /// Remove a leaf mapping and reclaim empty intermediate tables owned by this pool.
+    ///
+    /// Only page-table frames allocated by this pool are reclaimed. The root
+    /// table is never reclaimed by this operation.
+    ///
+    /// # Safety
+    /// The address-space root must be inactive and inaccessible to every CPU.
+    /// The caller must ensure that no page-table walker can race this update
+    /// and that no TLB entry can reference the removed mapping or reclaimed
+    /// tables. This method does not invalidate TLBs or free the mapped data
+    /// frame.
+    pub unsafe fn unmap_leaf_with_reclaim(
+        &mut self,
+        root: PhysAddr,
+        virtual_address: VirtAddr,
+        page_size: PageSize,
+        physical_address_bits: u8,
+    ) -> Result<(), PageTableHierarchyError> {
+        let geometry = AddressGeometry::new(48)
+            .map_err(|_| PageTableHierarchyError::Paging(X86PagingError::InvalidAddressGeometry))?;
+        let indices = PageTableIndices::from_address(virtual_address, geometry)
+            .map_err(PageTableHierarchyError::Paging)?;
+        let mask = physical_address_mask(physical_address_bits)
+            .map_err(PageTableHierarchyError::Paging)?;
+        let root_entry = read_table_entry(&self.memory, root, indices.pml4)
+            .map_err(PageTableHierarchyError::Paging)?;
+        if root_entry & PRESENT == 0 || root_entry & HUGE_PAGE != 0 {
+            return Err(PageTableHierarchyError::Paging(X86PagingError::MissingIntermediateTable));
+        }
+        let pdpt = PhysAddr::new(root_entry & mask);
+        let mut reclaim: [Option<(PhysAddr, u16, PhysAddr)>; 3] = [None; 3];
+        let mut count = 0usize;
+
+        if matches!(page_size, PageSize::Size1GiB) {
+            reclaim[count] = Some((root, indices.pml4, pdpt));
+            count += 1;
+        } else {
+            let pdpt_entry = read_table_entry(&self.memory, pdpt, indices.pdpt)
+                .map_err(PageTableHierarchyError::Paging)?;
+            if pdpt_entry & PRESENT == 0 || pdpt_entry & HUGE_PAGE != 0 {
+                return Err(PageTableHierarchyError::Paging(X86PagingError::MissingIntermediateTable));
+            }
+            let pd = PhysAddr::new(pdpt_entry & mask);
+            if matches!(page_size, PageSize::Size2MiB) {
+                reclaim[count] = Some((pdpt, indices.pdpt, pd));
+                count += 1;
+            } else {
+                let pd_entry = read_table_entry(&self.memory, pd, indices.pd)
+                    .map_err(PageTableHierarchyError::Paging)?;
+                if pd_entry & PRESENT == 0 || pd_entry & HUGE_PAGE != 0 {
+                    return Err(PageTableHierarchyError::Paging(X86PagingError::MissingIntermediateTable));
+                }
+                let pt = PhysAddr::new(pd_entry & mask);
+                reclaim[count] = Some((pd, indices.pd, pt));
+                count += 1;
+                reclaim[count] = Some((pdpt, indices.pdpt, pd));
+                count += 1;
+            }
+            reclaim[count] = Some((root, indices.pml4, pdpt));
+            count += 1;
+        }
+
+        unmap_leaf(
+            &mut self.memory,
+            root,
+            virtual_address,
+            page_size,
+            physical_address_bits,
+        )
+        .map_err(PageTableHierarchyError::Paging)?;
+
+        while count > 0 {
+            count -= 1;
+            if let Some((parent, index, child)) = reclaim[count] {
+                self.reclaim_empty_child(parent, index, child)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn reclaim_empty_child(
+        &mut self,
+        parent: PhysAddr,
+        index: u16,
+        child: PhysAddr,
+    ) -> Result<(), PageTableHierarchyError> {
+        if !self.owned.iter().any(|slot| *slot == Some(child)) {
+            return Ok(());
+        }
+        for entry_index in 0..512 {
+            let entry = self.memory.read_entry(child, entry_index)
+                .ok_or(PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed))?;
+            if entry & PRESENT != 0 {
+                return Ok(());
+            }
+        }
+        if !self.memory.write_entry(parent, index, 0) {
+            return Err(PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed));
+        }
+        // SAFETY: The caller of unmap_leaf_with_reclaim guarantees the
+        // hierarchy is inactive; this child is now detached and empty.
+        unsafe { self.release_table_frame(child) }.map_err(PageTableHierarchyError::Pool)
+    }
+
     fn ensure_child_table(
         &mut self,
         parent: PhysAddr,
