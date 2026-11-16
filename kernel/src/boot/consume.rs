@@ -118,7 +118,7 @@ mod tests {
     fn consumes_required_responses_into_borrowed_boot_info() {
         let entry = super::super::LimineMemmapEntry {
             base: 0x1000,
-            length: 0x20_0000,
+            length: 0x40_0000,
             kind: super::super::LIMINE_MEMMAP_EXECUTABLE_AND_MODULES,
         };
         let entry_pointer = &entry as *const super::super::LimineMemmapEntry;
