@@ -119,7 +119,7 @@ mod tests {
         let entry = super::super::LimineMemmapEntry {
             base: 0x1000,
             length: 0x20_0000,
-            kind: super::super::LIMINE_MEMMAP_USABLE,
+            kind: super::super::LIMINE_MEMMAP_KERNEL_AND_MODULES,
         };
         let entry_pointer = &entry as *const super::super::LimineMemmapEntry;
         let entry_pointers = [entry_pointer];
