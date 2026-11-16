@@ -156,6 +156,9 @@ impl<'a> Pmm<'a> {
     ) -> Result<Self, PmmError> {
         let metadata_size = core::mem::size_of::<FrameMetadata>();
         let page = page_size.get();
+        if !page.is_power_of_two() {
+            return Err(PmmError::InvalidPageSize);
+        }
         let expected_bitmap_bytes = layout
             .tracked_frames
             .checked_add(7)
@@ -211,6 +214,18 @@ impl<'a> Pmm<'a> {
             usize::try_from(bitmap_virtual).map_err(|_| PmmError::InvalidHhdmAddress)?;
         let metadata_address =
             usize::try_from(metadata_virtual).map_err(|_| PmmError::InvalidHhdmAddress)?;
+        let metadata_bytes = metadata_len
+            .checked_mul(metadata_size)
+            .ok_or(PmmError::InvalidMetadataLayout)?;
+        if bitmap_address == 0
+            || metadata_address == 0
+            || bitmap_len > isize::MAX as usize
+            || metadata_bytes > isize::MAX as usize
+            || bitmap_address.checked_add(bitmap_len).is_none()
+            || metadata_address.checked_add(metadata_bytes).is_none()
+        {
+            return Err(PmmError::InvalidHhdmAddress);
+        }
         if metadata_address % core::mem::align_of::<FrameMetadata>() != 0 {
             return Err(PmmError::MisalignedMetadataAddress);
         }
