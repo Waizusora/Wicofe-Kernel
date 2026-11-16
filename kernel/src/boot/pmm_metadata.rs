@@ -94,8 +94,7 @@ pub fn plan_pmm_metadata_placement(
     let raw_bytes = bitmap_bytes
         .checked_add(frame_metadata_bytes)
         .ok_or(PmmMetadataError::ArithmeticOverflow)?;
-    let reserved_length =
-        align_up(raw_bytes, page).ok_or(PmmMetadataError::ArithmeticOverflow)?;
+    let reserved_length = align_up(raw_bytes, page).ok_or(PmmMetadataError::ArithmeticOverflow)?;
 
     let mut placement = None;
     for range in ranges {
@@ -186,7 +185,9 @@ mod tests {
         let ranges = [range(0x1000, 0x20_000), range(0x40_000, 0x10_000)];
         let mut output = [range(0, 0); 2];
         let (layout, count) =
-            plan_pmm_metadata_placement(&ranges, PAGE, FRAME_META, &mut output).unwrap();
+            plan_pmm_metadata_placement(&ranges, PAGE,
+                FRAME_META,
+                &mut output).unwrap();
 
         assert_eq!(layout.tracked_frames, 48);
         assert_eq!(layout.bitmap_bytes, 6);
