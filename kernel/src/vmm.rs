@@ -111,10 +111,7 @@ pub struct VirtRange {
 }
 
 impl VirtRange {
-    pub const fn from_start_len(
-        start: VirtAddr,
-        length: NonZeroU64,
-    ) -> Result<Self, VmmError> {
+    pub const fn from_start_len(start: VirtAddr, length: NonZeroU64) -> Result<Self, VmmError> {
         match start.checked_add(length.get()) {
             Some(end) => Ok(Self { start, end }),
             None => Err(VmmError::AddressOverflow),
