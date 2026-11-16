@@ -272,8 +272,7 @@ pub fn map_leaf<M: PageTableMemory>(
     physical_address_bits: u8,
     nx_enabled: bool,
 ) -> Result<(), X86PagingError> {
-    let geometry =
-        AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
+    let geometry = AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
     let indices = PageTableIndices::from_address(virtual_address, geometry)?;
     let size = page_size.bytes().get();
     if virtual_address.get() % size != 0 {
@@ -286,13 +285,7 @@ pub fn map_leaf<M: PageTableMemory>(
         physical_address_bits,
         nx_enabled,
     )?;
-    let (table, index) = leaf_slot(
-        memory,
-        root,
-        indices,
-        page_size,
-        physical_address_bits,
-    )?;
+    let (table, index) = leaf_slot(memory, root, indices, page_size, physical_address_bits)?;
     let current = read_table_entry(memory, table, index)?;
     if current & PRESENT != 0 {
         return Err(X86PagingError::AlreadyMapped);
@@ -366,7 +359,9 @@ pub fn translate<M: PageTableMemory>(
         let size = PageSize::Size1GiB;
         let base = pdpte & mask & !(size.bytes().get() - 1);
         return Ok(Translation {
-            physical_address: PhysAddr::new(base | (virtual_address.get() & (size.bytes().get() - 1))),
+            physical_address: PhysAddr::new(
+                base | (virtual_address.get() & (size.bytes().get() - 1)),
+            ),
             page_size: size,
         });
     }
@@ -445,8 +440,8 @@ mod tests {
             true,
         )
         .unwrap();
-        let translated = translate(&tables, root, VirtAddr::new(0xffff_8000_0000_3123), 48)
-            .unwrap();
+        let translated =
+            translate(&tables, root, VirtAddr::new(0xffff_8000_0000_3123), 48).unwrap();
         assert_eq!(translated.physical_address, PhysAddr::new(0x9123));
         assert_eq!(translated.page_size, PageSize::Size4KiB);
         assert_eq!(
@@ -462,14 +457,7 @@ mod tests {
             ),
             Err(X86PagingError::AlreadyMapped)
         );
-        unmap_leaf(
-            &mut tables,
-            root,
-            virtual_address,
-            PageSize::Size4KiB,
-            48,
-        )
-        .unwrap();
+        unmap_leaf(&mut tables, root, virtual_address, PageSize::Size4KiB, 48).unwrap();
         assert_eq!(
             translate(&tables, root, virtual_address, 48),
             Err(X86PagingError::NotMapped)
@@ -480,11 +468,7 @@ mod tests {
     fn translates_existing_2m_and_1g_huge_pages() {
         let mut tables = synthetic_four_level_tables();
         // Replace PDPT entry with a 1 GiB leaf.
-        tables.write_entry(
-            PhysAddr::new(0x2000),
-            1,
-            0x4000_0000 | PRESENT | HUGE_PAGE,
-        );
+        tables.write_entry(PhysAddr::new(0x2000), 1, 0x4000_0000 | PRESENT | HUGE_PAGE);
         let one_gib = translate(
             &tables,
             PhysAddr::new(0x1000),
@@ -497,11 +481,7 @@ mod tests {
 
         // Restore a table at PDPT[0], then install a 2 MiB leaf in PD[2].
         tables.write_entry(PhysAddr::new(0x2000), 1, 0);
-        tables.write_entry(
-            PhysAddr::new(0x3000),
-            2,
-            0x80_0000 | PRESENT | HUGE_PAGE,
-        );
+        tables.write_entry(PhysAddr::new(0x3000), 2, 0x80_0000 | PRESENT | HUGE_PAGE);
         let two_mib = translate(
             &tables,
             PhysAddr::new(0x1000),
