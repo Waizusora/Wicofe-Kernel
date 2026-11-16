@@ -298,9 +298,9 @@ fn validate_parent_permissions<M: PageTableMemory>(
 }
 
 fn check_parent_permissions(entry: u64, flags: PageFlags) -> Result<(), X86PagingError> {
-    if (flags.is_writable() && entry & WRITABLE == 0)
-        || (flags.is_user() && entry & USER == 0)
-    {
+    let missing_write_permission = flags.is_writable() && entry & WRITABLE == 0;
+    let missing_user_permission = flags.is_user() && entry & USER == 0;
+    if missing_write_permission || missing_user_permission {
         return Err(X86PagingError::InsufficientIntermediatePermissions);
     }
     Ok(())
