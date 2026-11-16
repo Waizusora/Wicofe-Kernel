@@ -5,9 +5,7 @@
 
 use core::num::NonZeroU64;
 
-use super::{
-    BootReservation, MemoryMapError, MemoryRegion, MemoryRegionKind, validate_memory_map,
-};
+use super::{BootReservation, MemoryMapError, MemoryRegion, MemoryRegionKind, validate_memory_map};
 
 /// A page-aligned, half-open physical range eligible for later PMM metadata
 /// placement or frame tracking.
@@ -76,9 +74,7 @@ pub fn build_early_memory_plan(
     Ok(written)
 }
 
-fn validate_reservations(
-    reservations: &[BootReservation],
-) -> Result<(), EarlyMemoryPlanError> {
+fn validate_reservations(reservations: &[BootReservation]) -> Result<(), EarlyMemoryPlanError> {
     for (index, reservation) in reservations.iter().enumerate() {
         if reservation.length == 0 || reservation.end().is_none() {
             return Err(EarlyMemoryPlanError::InvalidReservation);
@@ -88,9 +84,7 @@ fn validate_reservations(
             let other_end = other
                 .end()
                 .ok_or(EarlyMemoryPlanError::InvalidReservation)?;
-            if other.length == 0
-                || (reservation.base < other_end && other.base < end)
-            {
+            if other.length == 0 || (reservation.base < other_end && other.base < end) {
                 return Err(EarlyMemoryPlanError::InvalidReservation);
             }
         }
@@ -165,11 +159,20 @@ mod tests {
     };
 
     const fn region(base: u64, length: u64, kind: MemoryRegionKind) -> MemoryRegion {
-        MemoryRegion { base, length, kind, attributes: 0 }
+        MemoryRegion {
+            base,
+            length,
+            kind,
+            attributes: 0,
+        }
     }
 
     const fn reservation(base: u64, length: u64) -> BootReservation {
-        BootReservation { base, length, kind: BootReservationKind::BootModule }
+        BootReservation {
+            base,
+            length,
+            kind: BootReservationKind::BootModule,
+        }
     }
 
     #[test]
@@ -179,8 +182,20 @@ mod tests {
         let mut output = [EarlyMemoryRange { base: 0, length: 0 }; 2];
         let count = build_early_memory_plan(&map, &reserved, PAGE, &mut output).unwrap();
         assert_eq!(count, 2);
-        assert_eq!(output[0], EarlyMemoryRange { base: 0x2000, length: 0x2000 });
-        assert_eq!(output[1], EarlyMemoryRange { base: 0x6000, length: 0x4000 });
+        assert_eq!(
+            output[0],
+            EarlyMemoryRange {
+                base: 0x2000,
+                length: 0x2000
+            }
+        );
+        assert_eq!(
+            output[1],
+            EarlyMemoryRange {
+                base: 0x6000,
+                length: 0x4000
+            }
+        );
     }
 
     #[test]
@@ -207,7 +222,13 @@ mod tests {
         let mut output = [EarlyMemoryRange { base: 0, length: 0 }; 4];
         let count = build_early_memory_plan(&map, &[], PAGE, &mut output).unwrap();
         assert_eq!(count, 1);
-        assert_eq!(output[0], EarlyMemoryRange { base: 0x1000, length: 0x2000 });
+        assert_eq!(
+            output[0],
+            EarlyMemoryRange {
+                base: 0x1000,
+                length: 0x2000
+            }
+        );
     }
 
     #[test]
@@ -230,7 +251,10 @@ mod tests {
         let mut output = [sentinel; 1];
         assert_eq!(
             build_early_memory_plan(&map, &reserved, PAGE, &mut output),
-            Err(EarlyMemoryPlanError::InsufficientCapacity { required: 2, available: 1 })
+            Err(EarlyMemoryPlanError::InsufficientCapacity {
+                required: 2,
+                available: 1
+            })
         );
         assert_eq!(output, [sentinel]);
     }
@@ -248,7 +272,12 @@ mod tests {
             Err(EarlyMemoryPlanError::InvalidReservation)
         );
         assert_eq!(
-            build_early_memory_plan(&map, &[reservation(0x2000, 0x2000), reservation(0x3000, 0x1000)], PAGE, &mut output),
+            build_early_memory_plan(
+                &map,
+                &[reservation(0x2000, 0x2000), reservation(0x3000, 0x1000)],
+                PAGE,
+                &mut output
+            ),
             Err(EarlyMemoryPlanError::InvalidReservation)
         );
     }
@@ -259,7 +288,9 @@ mod tests {
         let mut output = [EarlyMemoryRange { base: 0, length: 0 }; 1];
         assert!(matches!(
             build_early_memory_plan(&map, &[], PAGE, &mut output),
-            Err(EarlyMemoryPlanError::InvalidMemoryMap(MemoryMapError::AddressOverflow))
+            Err(EarlyMemoryPlanError::InvalidMemoryMap(
+                MemoryMapError::AddressOverflow
+            ))
         ));
     }
 
@@ -270,6 +301,12 @@ mod tests {
         let mut output = [EarlyMemoryRange { base: 0, length: 0 }; 1];
         let count = build_early_memory_plan(&map, &reserved, PAGE, &mut output).unwrap();
         assert_eq!(count, 1);
-        assert_eq!(output[0], EarlyMemoryRange { base: 0x3000, length: 0x3000 });
+        assert_eq!(
+            output[0],
+            EarlyMemoryRange {
+                base: 0x3000,
+                length: 0x3000
+            }
+        );
     }
 }
