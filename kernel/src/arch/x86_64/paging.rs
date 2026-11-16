@@ -28,6 +28,7 @@ pub enum X86PagingError {
     InvalidAddressGeometry,
     NonCanonicalAddress,
     InvalidRootTable,
+    MisalignedVirtualAddress,
     MissingIntermediateTable,
     InvalidHierarchy,
     AlreadyMapped,
@@ -276,7 +277,7 @@ pub fn map_leaf<M: PageTableMemory>(
     let indices = PageTableIndices::from_address(virtual_address, geometry)?;
     let size = page_size.bytes().get();
     if virtual_address.get() % size != 0 {
-        return Err(X86PagingError::NonCanonicalAddress);
+        return Err(X86PagingError::MisalignedVirtualAddress);
     }
     let encoded = PageTableEntry::encode_leaf(
         physical_base,
@@ -312,7 +313,7 @@ pub fn unmap_leaf<M: PageTableMemory>(
     let indices = PageTableIndices::from_address(virtual_address, geometry)?;
     let size = page_size.bytes().get();
     if virtual_address.get() % size != 0 {
-        return Err(X86PagingError::NonCanonicalAddress);
+        return Err(X86PagingError::MisalignedVirtualAddress);
     }
     let (table, index) = leaf_slot(
         memory,
@@ -324,6 +325,10 @@ pub fn unmap_leaf<M: PageTableMemory>(
     let current = read_table_entry(memory, table, index)?;
     if current & PRESENT == 0 {
         return Err(X86PagingError::NotMapped);
+    }
+    let expects_huge = !matches!(page_size, PageSize::Size4KiB);
+    if (current & HUGE_PAGE != 0) != expects_huge {
+        return Err(X86PagingError::InvalidHierarchy);
     }
     if !memory.write_entry(table, index, 0) {
         return Err(X86PagingError::MemoryAccessFailed);
