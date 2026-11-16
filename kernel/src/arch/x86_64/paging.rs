@@ -516,8 +516,7 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         }
         let root_entry = read_table_entry(&self.memory, root, indices.pml4)
             .map_err(PageTableHierarchyError::Paging)?;
-        if root_entry & PRESENT == 0 || root_entry & HUGE_PAGE != 0 {
-            return Err(PageTableHierarchyError::Paging(
+        if root_entry & PRESENT == 0 || root_entry & HUGE_PAGE != 0 {            return Err(PageTableHierarchyError::Paging(
                 X86PagingError::MissingIntermediateTable,
             ));
         }
@@ -531,10 +530,9 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         } else {
             let pdpt_entry = read_table_entry(&self.memory, pdpt, indices.pdpt)
                 .map_err(PageTableHierarchyError::Paging)?;
-            if pdpt_entry & PRESENT == 0 || pdpt_entry & HUGE_PAGE != 0 {
-                return Err(PageTableHierarchyError::Paging(
-                X86PagingError::MissingIntermediateTable,
-            ));
+            if pdpt_entry & PRESENT == 0 || pdpt_entry & HUGE_PAGE != 0 {                return Err(PageTableHierarchyError::Paging(
+                    X86PagingError::MissingIntermediateTable,
+                ));
             }
             let pd = PhysAddr::new(pdpt_entry & mask);
             if matches!(page_size, PageSize::Size2MiB) {
@@ -543,10 +541,9 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
             } else {
                 let pd_entry = read_table_entry(&self.memory, pd, indices.pd)
                     .map_err(PageTableHierarchyError::Paging)?;
-                if pd_entry & PRESENT == 0 || pd_entry & HUGE_PAGE != 0 {
-                    return Err(PageTableHierarchyError::Paging(
-                X86PagingError::MissingIntermediateTable,
-            ));
+                if pd_entry & PRESENT == 0 || pd_entry & HUGE_PAGE != 0 {                    return Err(PageTableHierarchyError::Paging(
+                        X86PagingError::MissingIntermediateTable,
+                    ));
                 }
                 let pt = PhysAddr::new(pd_entry & mask);
                 reclaim[count] = Some((pd, indices.pd, pt));
@@ -567,7 +564,7 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         )
         .map_err(PageTableHierarchyError::Paging)?;
 
-        for position in reclaim.iter().take(count).flatten() {
+        for position in reclaim.iter().take(count).flatten().rev() {
             let (parent, index, child) = *position;
             self.reclaim_empty_child(parent, index, child)?;
         }
