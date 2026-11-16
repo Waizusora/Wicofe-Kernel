@@ -155,9 +155,26 @@ impl<'a> Pmm<'a> {
         layout: &PmmMetadataLayout,
     ) -> Result<Self, PmmError> {
         let metadata_size = core::mem::size_of::<FrameMetadata>();
+        let page = page_size.get();
+        let expected_bitmap_bytes = layout
+            .tracked_frames
+            .checked_add(7)
+            .ok_or(PmmError::ArithmeticOverflow)?
+            / 8;
+        let expected_metadata_bytes = layout
+            .tracked_frames
+            .checked_mul(metadata_size as u64)
+            .ok_or(PmmError::ArithmeticOverflow)?;
         if metadata_size != 16
+            || layout.physical_base % page != 0
+            || layout.reserved_length == 0
+            || layout.reserved_length % page != 0
+            || layout.physical_base.checked_add(layout.reserved_length).is_none()
+            || layout.bitmap_bytes < expected_bitmap_bytes
+            || layout.frame_metadata_bytes < expected_metadata_bytes
             || layout.frame_metadata_bytes % metadata_size as u64 != 0
             || layout.frame_metadata_offset < layout.bitmap_bytes
+            || layout.frame_metadata_offset % core::mem::align_of::<FrameMetadata>() as u64 != 0
         {
             return Err(PmmError::InvalidMetadataLayout);
         }
@@ -331,6 +348,36 @@ mod tests {
 
     const fn range(base: u64, length: u64) -> EarlyMemoryRange {
         EarlyMemoryRange { base, length }
+    }
+
+    #[test]
+    fn initializes_metadata_from_hhdm_backing() {
+        #[repr(align(4096))]
+        struct Backing([u8; 4096]);
+
+        let mut backing = Backing([0; 4096]);
+        let physical_base = 0x1000u64;
+        let virtual_base = backing.0.as_mut_ptr() as u64;
+        let hhdm_offset = virtual_base - physical_base;
+        let ranges = [range(0x2000, 0x2000)];
+        let layout = PmmMetadataLayout {
+            physical_base,
+            reserved_length: 0x1000,
+            tracked_frames: 2,
+            bitmap_bytes: 1,
+            frame_metadata_offset: 8,
+            frame_metadata_bytes: 32,
+        };
+
+        // SAFETY: `backing` is page-aligned, writable, exclusively borrowed,
+        // and remains alive for the allocator lifetime. The synthetic HHDM
+        // offset maps the reserved physical interval onto this backing array.
+        let mut pmm =
+            unsafe { Pmm::from_hhdm(&ranges, PAGE, hhdm_offset, &layout) }.unwrap();
+        let frame = pmm.allocate_frame(0x5749434f).unwrap();
+        assert_eq!(frame, PhysAddr::new(0x2000));
+        assert_eq!(pmm.frame_metadata(frame).unwrap().owner_tag, 0x5749434f);
+        assert_ne!(backing.0[0] & 1, 0);
     }
 
     #[test]
