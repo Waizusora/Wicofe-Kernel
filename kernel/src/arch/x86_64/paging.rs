@@ -272,6 +272,13 @@ pub enum PageTablePoolError {
     Pmm(PmmError),
 }
 
+/// Errors while constructing a page-table hierarchy.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PageTableHierarchyError {
+    Paging(X86PagingError),
+    Pool(PageTablePoolError),
+}
+
 /// Owns a bounded set of zero-initialized page-table frames from the PMM.
 ///
 /// The pool deliberately does not create parent entries or activate a root.
@@ -371,6 +378,108 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
     /// Number of page-table frames currently owned by this pool.
     pub const fn owned_frame_count(&self) -> usize {
         self.owned_count
+    }
+
+    /// Create missing intermediate tables and install one leaf mapping.
+    ///
+    /// On failure, newly created parent entries are detached and their frames
+    /// are returned to the PMM. Existing hierarchy entries are left untouched.
+    ///
+    /// # Safety
+    /// The root hierarchy must be inactive and inaccessible to every CPU for
+    /// the duration of this operation. The caller must not publish the root
+    /// until construction is complete. This avoids requiring TLB invalidation
+    /// during rollback.
+    pub unsafe fn map_leaf_with_tables(
+        &mut self,
+        root: PhysAddr,
+        virtual_address: VirtAddr,
+        physical_base: PhysAddr,
+        page_size: PageSize,
+        flags: PageFlags,
+        physical_address_bits: u8,
+        nx_enabled: bool,
+    ) -> Result<(), PageTableHierarchyError> {
+        let geometry = AddressGeometry::new(48)
+            .map_err(|_| PageTableHierarchyError::Paging(X86PagingError::InvalidAddressGeometry))?;
+        let indices = PageTableIndices::from_address(virtual_address, geometry)
+            .map_err(PageTableHierarchyError::Paging)?;
+        let mut created: [Option<(PhysAddr, u16, PhysAddr)>; 3] = [None; 3];
+        let mut created_count = 0usize;
+
+        let result = (|| {
+            let pdpt = self.ensure_child_table(
+                root, indices.pml4, flags, physical_address_bits,
+                &mut created, &mut created_count,
+            )?;
+            if !matches!(page_size, PageSize::Size1GiB) {
+                let pd = self.ensure_child_table(
+                    pdpt, indices.pdpt, flags, physical_address_bits,
+                    &mut created, &mut created_count,
+                )?;
+                if matches!(page_size, PageSize::Size4KiB) {
+                    self.ensure_child_table(
+                        pd, indices.pd, flags, physical_address_bits,
+                        &mut created, &mut created_count,
+                    )?;
+                }
+            }
+            map_leaf(
+                &mut self.memory, root, virtual_address, physical_base, page_size,
+                flags, physical_address_bits, nx_enabled,
+            ).map_err(PageTableHierarchyError::Paging)
+        })();
+
+        if result.is_err() {
+            while created_count > 0 {
+                created_count -= 1;
+                if let Some((parent, index, child)) = created[created_count] {
+                    if self.memory.write_entry(parent, index, 0) {
+                        // SAFETY: The root is required to be inactive and the
+                        // child has just been detached by clearing its parent.
+                        let _ = unsafe { self.release_table_frame(child) };
+                    }
+                }
+            }
+        }
+        result
+    }
+
+    fn ensure_child_table(
+        &mut self,
+        parent: PhysAddr,
+        index: u16,
+        flags: PageFlags,
+        physical_address_bits: u8,
+        created: &mut [Option<(PhysAddr, u16, PhysAddr)>; 3],
+        created_count: &mut usize,
+    ) -> Result<PhysAddr, PageTableHierarchyError> {
+        let current = self.memory.read_entry(parent, index)
+            .ok_or(PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed))?;
+        if current & PRESENT != 0 {
+            if current & HUGE_PAGE != 0 {
+                return Err(PageTableHierarchyError::Paging(X86PagingError::InvalidHierarchy));
+            }
+            let mask = physical_address_mask(physical_address_bits)
+                .map_err(PageTableHierarchyError::Paging)?;
+            check_parent_permissions(current, flags).map_err(PageTableHierarchyError::Paging)?;
+            return Ok(PhysAddr::new(current & mask));
+        }
+
+        let child = self.allocate_zeroed_table().map_err(PageTableHierarchyError::Pool)?;
+        let mut entry = child.get() | PRESENT | WRITABLE;
+        if flags.is_user() {
+            entry |= USER;
+        }
+        if !self.memory.write_entry(parent, index, entry) {
+            // SAFETY: The child was allocated but never linked into a hierarchy.
+            unsafe { self.release_table_frame(child) }
+                .map_err(PageTableHierarchyError::Pool)?;
+            return Err(PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed));
+        }
+        created[*created_count] = Some((parent, index, child));
+        *created_count += 1;
+        Ok(child)
     }
 }
 
