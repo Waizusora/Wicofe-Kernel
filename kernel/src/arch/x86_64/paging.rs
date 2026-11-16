@@ -336,8 +336,7 @@ pub fn translate<M: PageTableMemory>(
     virtual_address: VirtAddr,
     physical_address_bits: u8,
 ) -> Result<Translation, X86PagingError> {
-    let geometry =
-        AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
+    let geometry = AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
     let indices = PageTableIndices::from_address(virtual_address, geometry)?;
     let mask = physical_address_mask(physical_address_bits)?;
     if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
