@@ -308,20 +308,13 @@ pub fn unmap_leaf<M: PageTableMemory>(
     page_size: PageSize,
     physical_address_bits: u8,
 ) -> Result<(), X86PagingError> {
-    let geometry =
-        AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
+    let geometry = AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
     let indices = PageTableIndices::from_address(virtual_address, geometry)?;
     let size = page_size.bytes().get();
     if virtual_address.get() % size != 0 {
         return Err(X86PagingError::MisalignedVirtualAddress);
     }
-    let (table, index) = leaf_slot(
-        memory,
-        root,
-        indices,
-        page_size,
-        physical_address_bits,
-    )?;
+    let (table, index) = leaf_slot(memory, root, indices, page_size, physical_address_bits)?;
     let current = read_table_entry(memory, table, index)?;
     if current & PRESENT == 0 {
         return Err(X86PagingError::NotMapped);
@@ -380,7 +373,9 @@ pub fn translate<M: PageTableMemory>(
         let size = PageSize::Size2MiB;
         let base = pde & mask & !(size.bytes().get() - 1);
         return Ok(Translation {
-            physical_address: PhysAddr::new(base | (virtual_address.get() & (size.bytes().get() - 1))),
+            physical_address: PhysAddr::new(
+                base | (virtual_address.get() & (size.bytes().get() - 1)),
+            ),
             page_size: size,
         });
     }
