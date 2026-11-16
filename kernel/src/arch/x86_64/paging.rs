@@ -33,6 +33,7 @@ pub enum X86PagingError {
     InvalidHierarchy,
     AlreadyMapped,
     NotMapped,
+    InsufficientIntermediatePermissions,
     MemoryAccessFailed,
 }
 
@@ -258,6 +259,63 @@ fn leaf_slot<M: PageTableMemory>(
     Ok((pt, indices.pt))
 }
 
+fn validate_parent_permissions<M: PageTableMemory>(
+    memory: &M,
+    root: PhysAddr,
+    indices: PageTableIndices,
+    page_size: PageSize,
+    physical_address_bits: u8,
+    flags: PageFlags,
+) -> Result<(), X86PagingError> {
+    let mask = physical_address_mask(physical_address_bits)?;
+    if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
+        return Err(X86PagingError::InvalidRootTable);
+    }
+
+    let pml4e = read_table_entry(memory, root, indices.pml4)?;
+    if pml4e & PRESENT == 0 || pml4e & HUGE_PAGE != 0 {
+        return Err(X86PagingError::InvalidHierarchy);
+    }
+    check_parent_permissions(pml4e, flags)?;
+
+    if matches!(page_size, PageSize::Size1GiB) {
+        return Ok(());
+    }
+
+    let pdpt = PhysAddr::new(pml4e & mask);
+    let pdpte = read_table_entry(memory, pdpt, indices.pdpt)?;
+    if pdpte & PRESENT == 0 {
+        return Err(X86PagingError::InvalidHierarchy);
+    }
+    if matches!(page_size, PageSize::Size2MiB) && pdpte & HUGE_PAGE != 0 {
+        return Err(X86PagingError::InvalidHierarchy);
+    }
+    if matches!(page_size, PageSize::Size4KiB) && pdpte & HUGE_PAGE != 0 {
+        return Err(X86PagingError::InvalidHierarchy);
+    }
+    check_parent_permissions(pdpte, flags)?;
+
+    if matches!(page_size, PageSize::Size2MiB) {
+        return Ok(());
+    }
+
+    let pd = PhysAddr::new(pdpte & mask);
+    let pde = read_table_entry(memory, pd, indices.pd)?;
+    if pde & PRESENT == 0 || pde & HUGE_PAGE != 0 {
+        return Err(X86PagingError::InvalidHierarchy);
+    }
+    check_parent_permissions(pde, flags)
+}
+
+fn check_parent_permissions(entry: u64, flags: PageFlags) -> Result<(), X86PagingError> {
+    if (flags.is_writable() && entry & WRITABLE == 0)
+        || (flags.is_user() && entry & USER == 0)
+    {
+        return Err(X86PagingError::InsufficientIntermediatePermissions);
+    }
+    Ok(())
+}
+
 /// Install a leaf mapping in an already populated four-level hierarchy.
 ///
 /// Intermediate tables are never allocated implicitly. This keeps PMM
@@ -291,6 +349,14 @@ pub fn map_leaf<M: PageTableMemory>(
     if current & PRESENT != 0 {
         return Err(X86PagingError::AlreadyMapped);
     }
+    validate_parent_permissions(
+        memory,
+        root,
+        indices,
+        page_size,
+        physical_address_bits,
+        flags,
+    )?;
     if !memory.write_entry(table, index, encoded.raw()) {
         return Err(X86PagingError::MemoryAccessFailed);
     }
@@ -422,6 +488,68 @@ mod tests {
         tables.write_entry(PhysAddr::new(0x2000), 0, 0x3000 | PRESENT | WRITABLE);
         tables.write_entry(PhysAddr::new(0x3000), 0, 0x4000 | PRESENT | WRITABLE);
         tables
+    }
+
+    #[test]
+    fn user_leaf_requires_user_access_at_every_intermediate_level() {
+        let mut tables = synthetic_four_level_tables();
+        let root = PhysAddr::new(0x1000);
+        let address = VirtAddr::new(0xffff_8000_0000_3000);
+
+        assert_eq!(
+            map_leaf(
+                &mut tables,
+                root,
+                address,
+                PhysAddr::new(0x9000),
+                PageSize::Size4KiB,
+                PageFlags::USER_READ_ONLY,
+                48,
+                true,
+            ),
+            Err(X86PagingError::InsufficientIntermediatePermissions)
+        );
+
+        for (table, index) in [(0x1000, 256), (0x2000, 0), (0x3000, 0)] {
+            let entry = tables.read_entry(PhysAddr::new(table), index).unwrap();
+            assert!(tables.write_entry(PhysAddr::new(table), index, entry | USER));
+        }
+
+        map_leaf(
+            &mut tables,
+            root,
+            address,
+            PhysAddr::new(0x9000),
+            PageSize::Size4KiB,
+            PageFlags::USER_READ_ONLY,
+            48,
+            true,
+        )
+        .unwrap();
+        let leaf = tables.read_entry(PhysAddr::new(0x4000), 3).unwrap();
+        assert_ne!(leaf & USER, 0);
+    }
+
+    #[test]
+    fn writable_leaf_requires_writable_intermediate_entries() {
+        let mut tables = synthetic_four_level_tables();
+        let root = PhysAddr::new(0x1000);
+        let root_entry = tables.read_entry(root, 256).unwrap();
+        assert!(tables.write_entry(root, 256, root_entry & !WRITABLE));
+
+        assert_eq!(
+            map_leaf(
+                &mut tables,
+                root,
+                VirtAddr::new(0xffff_8000_0000_3000),
+                PhysAddr::new(0x9000),
+                PageSize::Size4KiB,
+                PageFlags::KERNEL_WRITABLE,
+                48,
+                true,
+            ),
+            Err(X86PagingError::InsufficientIntermediatePermissions)
+        );
     }
 
     #[test]
