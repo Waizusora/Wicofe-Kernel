@@ -132,23 +132,25 @@ fn visit_eligible_ranges(
             let segment_end = next_reservation;
             let aligned_start = align_up(cursor, page_size);
             let aligned_end = segment_end - (segment_end % page_size);
-            if aligned_start < aligned_end {
-                visit(EarlyMemoryRange {
-                    base: aligned_start,
-                    length: aligned_end - aligned_start,
-                });
+            if let Some(aligned_start) = aligned_start {
+                if aligned_start < aligned_end {
+                    visit(EarlyMemoryRange {
+                        base: aligned_start,
+                        length: aligned_end - aligned_start,
+                    });
+                }
             }
             cursor = segment_end;
         }
     }
 }
 
-fn align_up(value: u64, alignment: u64) -> u64 {
+fn align_up(value: u64, alignment: u64) -> Option<u64> {
     let remainder = value % alignment;
     if remainder == 0 {
-        value
+        Some(value)
     } else {
-        value + (alignment - remainder)
+        value.checked_add(alignment - remainder)
     }
 }
 
