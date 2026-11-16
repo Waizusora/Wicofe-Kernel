@@ -212,14 +212,14 @@ mod tests {
 
     #[test]
     fn insufficient_output_capacity_is_transactional() {
-        let ranges = [range(0x1000, 0x20_000)];
+        let ranges = [range(0x1000, 0x20_000), range(0x40_000, 0x1000)];
         let sentinel = range(7, 9);
-        let mut output: [EarlyMemoryRange; 0] = [];
+        let mut output = [sentinel; 1];
         assert_eq!(
             plan_pmm_metadata_placement(&ranges, PAGE, FRAME_META, &mut output),
             Err(PmmMetadataError::InsufficientOutputCapacity {
-                required: 1,
-                available: 0
+                required: 2,
+                available: 1
             })
         );
         assert_eq!(output, [sentinel]);
