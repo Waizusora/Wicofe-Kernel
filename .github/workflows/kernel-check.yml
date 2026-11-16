@@ -30,7 +30,7 @@ jobs:
         run: cargo check --workspace --target x86_64-unknown-none
       - name: Build x86-64 kernel ELF
         run: |
-          cargo build -p wicofe-kernel --bin wicofe-kernel --target x86_64-unknown-none
+          cargo build -p wicofe-kernel --features kernel-image --bin wicofe-kernel --target x86_64-unknown-none
           readelf -h target/x86_64-unknown-none/debug/wicofe-kernel
           readelf -l target/x86_64-unknown-none/debug/wicofe-kernel
       - name: Check AArch64 target

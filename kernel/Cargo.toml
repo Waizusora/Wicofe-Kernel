@@ -10,5 +10,16 @@ description = "WICOFE monolithic kernel foundation"
 path = "src/lib.rs"
 crate-type = ["rlib"]
 
+[[bin]]
+name = "wicofe-kernel"
+path = "src/main.rs"
+required-features = ["kernel-image"]
+test = false
+bench = false
+
+[features]
+default = []
+kernel-image = []
+
 [lints]
 workspace = true
