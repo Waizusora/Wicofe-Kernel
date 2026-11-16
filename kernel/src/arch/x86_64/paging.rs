@@ -546,11 +546,9 @@ mod tests {
             Err(X86PagingError::InsufficientIntermediatePermissions)
         );
 
-        assert!(tables.write_entry(
-            PhysAddr::new(0x2000),
-            0,
-            pdpt_entry | USER,
-        ));
+        let pdpt = PhysAddr::new(0x2000);
+        let updated_entry = pdpt_entry | USER;
+        assert!(tables.write_entry(pdpt, 0, updated_entry));
         map_leaf(
             &mut tables,
             root,
