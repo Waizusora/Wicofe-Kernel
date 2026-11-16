@@ -207,8 +207,9 @@ mod tests {
         let (layout, count) =
             plan_pmm_metadata_placement(&ranges, PAGE, large_metadata, &mut output).unwrap();
         assert_eq!(layout.physical_base, 0x4000);
-        assert_eq!(count, 1);
+        assert_eq!(count, 2);
         assert_eq!(output[0], range(0x1000, 0x1000));
+        assert_eq!(output[1], range(0x6000, 0x1e_000));
     }
 
     #[test]
