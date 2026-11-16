@@ -14,6 +14,7 @@ pub mod boot;
 pub mod hal;
 pub mod memory;
 pub mod pmm;
+pub mod vmm;
 
 /// Kernel identity used by early diagnostics and build metadata.
 pub const KERNEL_NAME: &str = "WICOFE";

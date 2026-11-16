@@ -1,7 +1,7 @@
 # WICOFE Memory Management Specification
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
-- **Version:** 1.7
+- **Version:** 1.8
 - **Status:** Initial PMM bootstrap implemented; x86-64 BIOS/QEMU runtime validation passed
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
@@ -288,6 +288,29 @@ NUMA-aware placement may be added later; it is not required for the first bootab
 ## 5. Virtual Memory Manager (VMM)
 
 The VMM manages virtual address spaces and page-table operations. Common kernel code must use architecture-neutral interfaces while x86-64 and AArch64 backends implement their respective translation-table formats and hardware operations.
+
+### 5.1 Architecture-neutral mapping contract
+
+The initial `kernel/src/vmm.rs` foundation defines typed, half-open virtual
+ranges, configurable canonical-address geometry, supported 4 KiB/2 MiB/1 GiB
+page sizes, hardware-independent mapping flags, and validated mapping
+requests. A request must have equal virtual and physical lengths, page-aligned
+bounds and length, and a virtual range contained in one canonical address
+half. The initial permission contract rejects unknown flags, writable plus
+executable mappings (W^X), and user-global mappings.
+
+For x86-64 four-level paging, configure 48 virtual-address bits. AArch64 must
+supply the width selected by its eventual translation-control configuration;
+the common layer does not assume that every AArch64 platform uses one fixed
+virtual-address size. Read access is implicit in the initial architecture
+backends. Cache attributes are represented as intent and must be translated
+or rejected by the architecture backend according to the target memory type.
+
+This is validation only. It does not allocate page-table frames, modify
+hardware page tables, map/unmap memory, switch CR3/TTBR, invalidate TLBs, or
+provide address-space ownership. Those operations must be added behind
+architecture-specific backends with explicit PMM integration and TLB
+synchronization before the VMM can be activated by the boot path.
 
 Responsibilities include:
 
