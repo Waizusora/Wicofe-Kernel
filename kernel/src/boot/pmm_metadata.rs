@@ -197,6 +197,7 @@ mod tests {
 
         assert_eq!(layout.tracked_frames, 48);
         assert_eq!(layout.bitmap_bytes, 6);
+        assert_eq!(layout.frame_metadata_offset, 8);
         assert_eq!(layout.frame_metadata_bytes, 48 * 16);
         assert_eq!(layout.physical_base, 0x1000);
         assert_eq!(layout.reserved_length, 0x1000);
