@@ -509,6 +509,9 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
             .map_err(PageTableHierarchyError::Paging)?;
         let mask = physical_address_mask(physical_address_bits)
             .map_err(PageTableHierarchyError::Paging)?;
+        if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
+            return Err(PageTableHierarchyError::Paging(X86PagingError::InvalidRootTable));
+        }
         let root_entry = read_table_entry(&self.memory, root, indices.pml4)
             .map_err(PageTableHierarchyError::Paging)?;
         if root_entry & PRESENT == 0 || root_entry & HUGE_PAGE != 0 {
