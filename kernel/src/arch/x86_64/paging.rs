@@ -484,6 +484,46 @@ mod tests {
     }
 
     #[test]
+    fn user_leaf_requires_user_access_at_every_intermediate_level() {
+        let mut tables = synthetic_four_level_tables();
+        let root = PhysAddr::new(0x1000);
+        let address = VirtAddr::new(0xffff_8000_0000_3000);
+
+        assert_eq!(
+            map_leaf(
+                &mut tables,
+                root,
+                address,
+                PhysAddr::new(0x9000),
+                PageSize::Size4KiB,
+                PageFlags::USER_READ_ONLY,
+                48,
+                true,
+            ),
+            Err(X86PagingError::InsufficientIntermediatePermissions)
+        );
+
+        for (table, index) in [(0x1000, 256), (0x2000, 0), (0x3000, 0)] {
+            let entry = tables.read_entry(PhysAddr::new(table), index).unwrap();
+            assert!(tables.write_entry(PhysAddr::new(table), index, entry | USER));
+        }
+
+        map_leaf(
+            &mut tables,
+            root,
+            address,
+            PhysAddr::new(0x9000),
+            PageSize::Size4KiB,
+            PageFlags::USER_READ_ONLY,
+            48,
+            true,
+        )
+        .unwrap();
+        let leaf = tables.read_entry(PhysAddr::new(0x4000), 3).unwrap();
+        assert_ne!(leaf & USER, 0);
+    }
+
+    #[test]
     fn two_mib_leaf_checks_both_parent_levels() {
         let mut tables = synthetic_four_level_tables();
         let root = PhysAddr::new(0x1000);
