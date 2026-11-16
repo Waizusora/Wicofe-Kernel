@@ -33,11 +33,26 @@ The ISO build script now requires both files and copies them to:
 
 This preserves the BSD-2-Clause notice and the upstream third-party attribution/license notices alongside the Limine binaries. The resulting ISO still requires a build-and-inspect verification after this change; no successful ISO build is claimed here.
 
+## Build and test toolchain findings
+
+The Limine host utility is now compiled directly from its C99 source with pinned `clang-22`; GNU Make is no longer invoked. Archive SHA-256 verification and safe `.tar.xz` extraction use Python's standard library (`hashlib` and `tarfile` with the data extraction filter), removing GNU coreutils `sha256sum` and GNU tar from the build script. ELF inspection uses `llvm-readelf-22` rather than GNU binutils `readelf`.
+
+The remaining CI dependencies include:
+
+| Tool | Role | License status under Policy 0.2 |
+|---|---|---|
+| QEMU 10.2.1 | x86-64 boot test | REJECTED — GPL-2.0-or-later; build/test only, not shipped |
+| xorriso 1.5.6 | ISO image creation | REJECTED — GPL-2.0-or-later; build-only, not shipped |
+| Clang/LLVM 22.1.2 | Compile Limine host utility and inspect ELF | NEEDS_REVIEW — Apache-2.0 WITH LLVM-exception |
+| curl | Download pinned Limine release | NEEDS_REVIEW — upstream curl license; build-only |
+
+QEMU is retained temporarily because it provides the current automated PC/BIOS boot test. Bochs is a candidate x86 emulator under LGPL-2.1, but it requires conditional approval and a parity test; it does not cover AArch64. xorriso is retained temporarily because it reliably creates the current BIOS-bootable ISO. cdrtools/mkisofs (CDDL-1.0) and libisofs/libburn (LGPL-family) are candidates, each requiring license review and a bootable-ISO parity test. These GPL tools remain release blockers under the literal Policy 0.2 rule; they have not been silently exempted because they are not shipped.
+
 ## Remaining review
 
 - Review Limine's binary archive contents and reconcile them with `3RDPARTY.md`.
 - Verify the detached release archive signature independently.
-- Audit build-host tools used by the script (`curl`, `make`, `tar`, `sha256sum`, `xorriso`) and pin the build environment.
+- Replace or obtain explicit policy resolution for GPL QEMU and xorriso; do not remove them before replacement parity tests.
 - Verify the final ISO contains the notices at the stated path and publish its SBOM.
 - Security and maintenance status for this Limine release remain NOT_ASSESSED.
 
