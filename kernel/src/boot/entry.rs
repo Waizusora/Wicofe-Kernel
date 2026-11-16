@@ -6,8 +6,8 @@
 
 use super::consume_limine_boot_info;
 use super::{
-    BootInfo, BootReservation, EarlyMemoryRange, build_boot_reservations,
-    build_early_memory_plan, plan_pmm_metadata_placement,
+    BootInfo, BootReservation, EarlyMemoryRange, build_boot_reservations, build_early_memory_plan,
+    plan_pmm_metadata_placement,
 };
 use super::info::{BootModule, MemoryRegion, MemoryRegionKind};
 use super::limine::{
@@ -73,9 +73,7 @@ unsafe extern "C" {
 /// The bootloader HHDM must remain active and map the complete selected PMM
 /// metadata extent as writable memory. The static planning buffers are part
 /// of the kernel image and are reserved by the kernel-image reservation.
-unsafe fn initialize_bootstrap_pmm(
-    boot_info: &BootInfo<'_>,
-) -> Result<Pmm<'static>, PmmError> {
+unsafe fn initialize_bootstrap_pmm(boot_info: &BootInfo<'_>) -> Result<Pmm<'static>, PmmError> {
     const PAGE_SIZE: NonZeroU64 = match NonZeroU64::new(4096) {
         Some(value) => value,
         None => panic!("page size must be non-zero"),
