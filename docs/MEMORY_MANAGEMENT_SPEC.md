@@ -321,20 +321,31 @@ walker. The walker can install and remove leaf mappings in an already
 populated hierarchy and translate virtual addresses through 4 KiB, 2 MiB,
 and 1 GiB leaves. It validates the root table, canonical virtual addresses,
 alignment, intermediate hierarchy shape, missing tables, and occupied or
-absent leaves. Synthetic table tests cover map/translate/unmap, huge-page
-translation, missing intermediate tables, and invalid roots.
+absent leaves. Before installing a leaf, it also checks effective writable
+and user-access permissions across every applicable parent entry: PML4 for
+1 GiB leaves; PML4 and PDPT for 2 MiB leaves; and PML4, PDPT, and PD for
+4 KiB leaves. It rejects a mapping when any parent entry would suppress the
+requested writable or user access; it does not silently widen parent
+permissions. Synthetic table tests cover map/translate/unmap, huge-page
+translation, missing intermediate tables, invalid roots, 4 KiB user access,
+2 MiB parent permissions, and writable-parent restrictions.
 
 This remains a low-level, inactive page-table primitive. It does not allocate
 or zero intermediate tables, track ownership of page-table frames, reclaim
 empty tables, install a new CR3, modify Limine's active mappings, or issue
 TLB invalidations. The current memory interface is an abstraction; a
 production HHDM-backed implementation and transactional PMM integration are
-still required. Parent-table permission propagation/effective-permission
-reporting, page-fault integration, and SMP/TLB synchronization are also not
-implemented. The kernel must preserve Limine's inherited page tables until a
-complete replacement hierarchy and all required identity, kernel, HHDM, and
-device mappings have been built and validated. No runtime page-table mutation
-is enabled by the boot path.
+still required. Parent permission propagation is intentionally not provided;
+callers must construct a hierarchy with sufficient parent permissions.
+Page-fault integration and SMP/TLB synchronization are also not implemented.
+The kernel must preserve Limine's inherited page tables until a complete
+replacement hierarchy and all required identity, kernel, HHDM, and device
+mappings have been built and validated. No runtime page-table mutation is
+enabled by the boot path.
+
+The parent-permission validation is covered by synthetic unit tests only. It
+does not yet demonstrate a live CR3 update, hardware-enforced user/kernel
+isolation, TLB invalidation, or a page-fault diagnostic path.
 
 Responsibilities include:
 
