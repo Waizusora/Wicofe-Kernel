@@ -4,6 +4,8 @@ This directory is exclusively for Wicofe kernel architecture, implementation con
 
 ## Canonical kernel documents
 
+- [Kernel architecture baseline](../ARCHITECTURE.md)
+- [Kernel licensing and dependency policy](LICENSING.md)
 - [Kernel design](KERNEL_DESIGN.md)
 - [DKM specification](DKM_SPEC.md)
 - [ABI boundaries](ABI_BOUNDARIES.md)
