@@ -411,7 +411,7 @@ mod tests {
 
     impl PageTableMemory for SyntheticTables {
         fn read_entry(&self, table: PhysAddr, index: u16) -> Option<u64> {
-            self.0.get(&(table.get(), index)).copied()
+            Some(self.0.get(&(table.get(), index)).copied().unwrap_or(0))
         }
 
         fn write_entry(&mut self, table: PhysAddr, index: u16, value: u64) -> bool {
@@ -488,7 +488,7 @@ mod tests {
         let one_gib = translate(
             &tables,
             PhysAddr::new(0x1000),
-            VirtAddr::new(0xffff_8040_1234_5678),
+            VirtAddr::new(0xffff_8000_5234_5678),
             48,
         )
         .unwrap();
@@ -527,7 +527,7 @@ mod tests {
                 48,
                 true,
             ),
-            Err(X86PagingError::MemoryAccessFailed)
+            Err(X86PagingError::MissingIntermediateTable)
         );
         assert_eq!(
             translate(
