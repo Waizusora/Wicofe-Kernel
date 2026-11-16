@@ -373,7 +373,6 @@ pub fn unmap_leaf<M: PageTableMemory>(
     if virtual_address.get() % size != 0 {
         return Err(X86PagingError::MisalignedVirtualAddress);
     }
-    validate_leaf_range(virtual_address, page_size)?;
     let indices = PageTableIndices::from_address(virtual_address, geometry)?;
     let (table, index) = leaf_slot(memory, root, indices, page_size, physical_address_bits)?;
     let current = read_table_entry(memory, table, index)?;
