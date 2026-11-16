@@ -1,7 +1,7 @@
 # WICOFE Memory Management Specification
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
-- **Version:** 1.1
+- **Version:** 1.2
 - **Status:** Design baseline (implementation parameters remain open)
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
@@ -89,6 +89,32 @@ and mutually disjoint. This early list does not yet account for every
 bootloader response structure or static bootstrap buffer: those remain
 protected by their enclosing memory-map ownership class (or kernel image)
 until their physical backing ranges can be identified and explicitly tracked.
+
+### 4.1.2 Early usable-memory plan
+
+The boot memory foundation derives a bounded `EarlyMemoryPlan` from the
+validated memory map and explicit reservation ledger before PMM metadata is
+placed. The planner:
+
+- considers only `Usable` memory-map descriptors;
+- validates the map, including unsorted input, overflow, and overlap;
+- subtracts every explicit reservation from each usable interval;
+- aligns candidate interval boundaries inward to the selected power-of-two
+  page size;
+- returns ranges sorted by physical base while preserving adjacent source
+  descriptors as separate entries;
+- excludes bootloader-reclaimable, firmware-reclaimable, device, reserved,
+  unknown, and all other non-usable classes;
+- uses caller-owned output storage and performs a counting pass before
+  writing, so insufficient capacity leaves the output unchanged.
+
+The planner rejects empty, overflowing, or overlapping reservations. Its
+output is only a candidate-range plan: it does not allocate memory, reserve
+metadata storage, initialize bitmap state, mutate the boot memory map, or
+transfer ownership. The caller must reserve the physical backing of PMM
+metadata before any corresponding frames can be exposed to the allocator.
+Reclaimable memory remains excluded until its metadata and all references
+have been safely consumed and its lifetime has ended.
 
 ### 4.2 Early allocator
 
