@@ -11,8 +11,35 @@ case "$OUTPUT_PATH" in /*) ;; *) OUTPUT_PATH="$ROOT_DIR/$OUTPUT_PATH" ;; esac
 ARCHIVE="$WORK_DIR/limine-binary.tar.xz"
 ARCHIVE_URL="https://github.com/Limine-Bootloader/Limine/releases/download/v${LIMINE_VERSION}/limine-binary.tar.xz"
 curl --fail --location --retry 3 --output "$ARCHIVE" "$ARCHIVE_URL"
-echo "${LIMINE_ARCHIVE_SHA256}  $ARCHIVE" | sha256sum --check
-tar -xJf "$ARCHIVE" -C "$WORK_DIR"
+python3 - "$ARCHIVE" "$LIMINE_ARCHIVE_SHA256" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+
+archive = Path(sys.argv[1])
+expected = sys.argv[2].lower()
+digest = hashlib.sha256()
+with archive.open("rb") as stream:
+    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+        digest.update(chunk)
+actual = digest.hexdigest()
+if actual != expected:
+    raise SystemExit(f"Limine archive SHA-256 mismatch: expected {expected}, got {actual}")
+PY
+python3 - "$ARCHIVE" "$WORK_DIR" <<'PY'
+import sys
+import tarfile
+from pathlib import Path
+
+archive = Path(sys.argv[1])
+destination = Path(sys.argv[2]).resolve()
+with tarfile.open(archive, "r:xz") as bundle:
+    for member in bundle.getmembers():
+        target = (destination / member.name).resolve()
+        if target != destination and destination not in target.parents:
+            raise SystemExit(f"Unsafe path in Limine archive: {member.name}")
+    bundle.extractall(destination, filter="data")
+PY
 LIMINE_DIR="$WORK_DIR/limine-binary"
 for required in limine-bios.sys limine-bios-cd.bin; do
     if [[ ! -e "$LIMINE_DIR/$required" ]]; then
@@ -29,7 +56,17 @@ for required in COPYING 3RDPARTY.md; do
     fi
 done
 
-make -C "$LIMINE_DIR"
+if [[ ! -f "$LIMINE_DIR/host/limine.c" ]]; then
+    echo "Limine host utility source is missing from the pinned archive" >&2
+    exit 1
+fi
+CC="${CC:-clang-22}"
+if ! command -v "$CC" >/dev/null 2>&1; then
+    echo "Required C99 compiler not found: $CC" >&2
+    exit 1
+fi
+"$CC" -g -O2 -pipe -std=c99 -D_FILE_OFFSET_BITS=64 \
+    "$LIMINE_DIR/host/limine.c" -o "$LIMINE_DIR/limine"
 if [[ ! -x "$LIMINE_DIR/limine" ]]; then
     echo "Limine host utility was not built" >&2
     exit 1
