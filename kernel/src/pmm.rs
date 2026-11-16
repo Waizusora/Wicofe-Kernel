@@ -169,7 +169,10 @@ impl<'a> Pmm<'a> {
             || layout.physical_base % page != 0
             || layout.reserved_length == 0
             || layout.reserved_length % page != 0
-            || layout.physical_base.checked_add(layout.reserved_length).is_none()
+            || layout
+                .physical_base
+                .checked_add(layout.reserved_length)
+                .is_none()
             || layout.bitmap_bytes < expected_bitmap_bytes
             || layout.frame_metadata_bytes < expected_metadata_bytes
             || layout.frame_metadata_bytes % metadata_size as u64 != 0
@@ -186,8 +189,8 @@ impl<'a> Pmm<'a> {
             return Err(PmmError::InvalidMetadataLayout);
         }
 
-        let bitmap_len = usize::try_from(layout.bitmap_bytes)
-            .map_err(|_| PmmError::InvalidMetadataLayout)?;
+        let bitmap_len =
+            usize::try_from(layout.bitmap_bytes).map_err(|_| PmmError::InvalidMetadataLayout)?;
         let metadata_len = usize::try_from(layout.frame_metadata_bytes / metadata_size as u64)
             .map_err(|_| PmmError::InvalidMetadataLayout)?;
         if bitmap_len == 0 || metadata_len == 0 {
@@ -218,10 +221,7 @@ impl<'a> Pmm<'a> {
             unsafe { core::slice::from_raw_parts_mut(bitmap_address as *mut u8, bitmap_len) };
         // SAFETY: Same backing-memory contract; offset is checked and aligned.
         let metadata = unsafe {
-            core::slice::from_raw_parts_mut(
-                metadata_address as *mut FrameMetadata,
-                metadata_len,
-            )
+            core::slice::from_raw_parts_mut(metadata_address as *mut FrameMetadata, metadata_len)
         };
         Self::new(ranges, page_size, bitmap, metadata)
     }
@@ -372,8 +372,7 @@ mod tests {
         // SAFETY: `backing` is page-aligned, writable, exclusively borrowed,
         // and remains alive for the allocator lifetime. The synthetic HHDM
         // offset maps the reserved physical interval onto this backing array.
-        let mut pmm =
-            unsafe { Pmm::from_hhdm(&ranges, PAGE, hhdm_offset, &layout) }.unwrap();
+        let mut pmm = unsafe { Pmm::from_hhdm(&ranges, PAGE, hhdm_offset, &layout) }.unwrap();
         let frame = pmm.allocate_frame(0x5749434f).unwrap();
         assert_eq!(frame, PhysAddr::new(0x2000));
         assert_eq!(pmm.frame_metadata(frame).unwrap().owner_tag, 0x5749434f);
