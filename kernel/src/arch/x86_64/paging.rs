@@ -1307,6 +1307,68 @@ mod tests {
     }
 
     #[test]
+    fn address_space_destroy_reclaims_owned_tree_but_not_borrowed_tables() {
+        use crate::boot::EarlyMemoryRange;
+        use crate::pmm::FrameMetadata;
+        use core::num::NonZeroU64;
+
+        #[repr(align(4096))]
+        struct Backing([u8; 6 * 4096]);
+
+        let mut backing = Backing([0; 6 * 4096]);
+        let physical_base = 0x1000u64;
+        let hhdm_offset = (backing.0.as_mut_ptr() as u64) - physical_base;
+        let ranges = [EarlyMemoryRange {
+            base: physical_base,
+            length: 6 * 4096,
+        }];
+        let mut bitmap = [0u8; 1];
+        let mut metadata = [FrameMetadata::default(); 6];
+        let mut pmm = Pmm::new(
+            &ranges,
+            NonZeroU64::new(4096).unwrap(),
+            &mut bitmap,
+            &mut metadata,
+        )
+        .unwrap();
+
+        // SAFETY: The aligned backing buffer is a writable synthetic HHDM for
+        // every frame in the PMM range; operations remain single-threaded.
+        let mut pool = unsafe { PageTableFramePool::<4>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let root = pool.create_address_space().unwrap();
+        let virtual_address = VirtAddr::new(0xffff_8000_1234_5000);
+        // SAFETY: The new root is private, inactive, and inaccessible to CPUs.
+        unsafe {
+            pool.map_leaf_with_tables(
+                root,
+                virtual_address,
+                PhysAddr::new(0x9000),
+                PageSize::Size4KiB,
+                PageFlags::KERNEL_WRITABLE,
+                48,
+                true,
+            )
+        }
+        .unwrap();
+
+        // An entry to a table not owned by this pool is treated as borrowed.
+        // Its address is deliberately outside the synthetic PMM backing; a
+        // correct destroy operation must not dereference it.
+        assert!(pool.memory().write_entry(root, 511, 0x9000 | PRESENT | WRITABLE));
+        assert_eq!(pool.owned_frame_count(), 4);
+
+        // SAFETY: The address space was never activated and has no TLB entries.
+        unsafe { pool.destroy_address_space(root, 48) }.unwrap();
+
+        assert_eq!(pool.owned_frame_count(), 0);
+        assert_eq!(pool.pmm.free_frames(), 6);
+        assert_eq!(
+            unsafe { pool.destroy_address_space(root, 48) },
+            Err(PageTableHierarchyError::Pool(PageTablePoolError::FrameNotOwned))
+        );
+    }
+
+    #[test]
     fn hhdm_page_table_accessor_rejects_invalid_physical_width() {
         // SAFETY: Constructor validation returns before the accessor can be used.
         assert!(matches!(
