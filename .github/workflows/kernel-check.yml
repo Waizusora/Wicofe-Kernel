@@ -117,6 +117,7 @@ jobs:
           xorriso -indev target/wicofe-x86_64.iso -ls /boot/limine/licenses/limine-12.9.6 | tee target/ci-audit/iso-notices.txt
           grep -Fq "COPYING" target/ci-audit/iso-notices.txt
           grep -Fq "3RDPARTY.md" target/ci-audit/iso-notices.txt
+          grep -Fq "LICENSE" target/ci-audit/iso-notices.txt
           python3 - target/wicofe-x86_64.iso target/wicofe-x86_64.iso.sha256 <<'PY'
           import hashlib
           import sys
