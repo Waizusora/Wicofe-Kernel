@@ -21,6 +21,67 @@ use super::{
     plan_pmm_metadata_placement,
 };
 
+#[cfg(target_arch = "x86_64")]
+fn early_serial_out(port: u16, value: u8) {
+    // SAFETY: The bootstrap runs in ring 0; COM1 is the conventional debug UART.
+    unsafe {
+        core::arch::asm!(
+            "out dx, al",
+            in("dx") port,
+            in("al") value,
+            options(nomem, nostack, preserves_flags)
+        );
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+fn early_serial_init() {
+    early_serial_out(0x3f9, 0x00);
+    early_serial_out(0x3fb, 0x80);
+    early_serial_out(0x3f8, 0x01);
+    early_serial_out(0x3f9, 0x00);
+    early_serial_out(0x3fb, 0x03);
+    early_serial_out(0x3fa, 0xc7);
+    early_serial_out(0x3fc, 0x0b);
+}
+
+#[cfg(target_arch = "x86_64")]
+fn early_serial_write_str(value: &str) {
+    for byte in value.bytes() {
+        if byte == b'\n' {
+            early_serial_write_byte(b'\r');
+        }
+        early_serial_write_byte(byte);
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+fn early_serial_write_byte(byte: u8) {
+    for _ in 0..100_000 {
+        let status: u8;
+        // SAFETY: Read the 16550 UART line-status register at COM1.
+        unsafe {
+            core::arch::asm!(
+                "in al, dx",
+                in("dx") 0x3fd_u16,
+                out("al") status,
+                options(nomem, nostack, preserves_flags)
+            );
+        }
+        if status & 0x20 != 0 {
+            early_serial_out(0x3f8, byte);
+            return;
+        }
+        core::hint::spin_loop();
+    }
+}
+
+#[cfg(target_arch = "aarch64")]
+fn early_serial_init() {}
+
+#[cfg(target_arch = "aarch64")]
+fn early_serial_write_str(_: &str) {}
+
 const EARLY_MEMORY_MAP_CAPACITY: usize = 256;
 const EARLY_MODULE_CAPACITY: usize = 64;
 
@@ -133,6 +194,8 @@ unsafe fn initialize_bootstrap_pmm(boot_info: &BootInfo<'_>) -> Result<Pmm<'stat
 /// This function must never return to Limine's invalid return address.
 #[unsafe(no_mangle)]
 pub extern "C" fn wicofe_bootstrap() -> ! {
+    early_serial_init();
+    early_serial_write_str("WICOFE: BOOTSTRAP_ENTERED\n");
     // Resolve linker bounds without reading the bytes at either symbol.
     // SAFETY: The final linker scripts define both symbols as image boundaries.
     let (linker_start, linker_end) = (
@@ -170,22 +233,28 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
 
     // Keep the validated borrowed view alive until a later stage takes
     // ownership of early memory reservations. No bootloader memory is freed.
-    if let Ok(validated_boot_info) = boot_info {
-        // SAFETY: This is the single Limine bootstrap CPU. No secondary CPU
-        // or interrupt handler uses PMM before the kernel enables them.
-        if let Ok(mut pmm) = unsafe { initialize_bootstrap_pmm(&validated_boot_info) } {
-            // Keep the initialized allocator and its metadata borrows alive.
-            // General allocation remains disabled until VMM and diagnostics
-            // are initialized in later milestones.
-            loop {
-                core::hint::black_box(&mut pmm);
-                core::hint::spin_loop();
+    match boot_info {
+        Ok(validated_boot_info) => {
+            early_serial_write_str("WICOFE: BOOTINFO_VALID\n");
+            // SAFETY: This is the single Limine bootstrap CPU. No secondary CPU
+            // or interrupt handler uses PMM before the kernel enables them.
+            match unsafe { initialize_bootstrap_pmm(&validated_boot_info) } {
+                Ok(mut pmm) => {
+                    early_serial_write_str("WICOFE: PMM_READY\n");
+                    // Keep allocator metadata alive. General allocation remains
+                    // disabled until VMM and diagnostics are initialized.
+                    loop {
+                        core::hint::black_box(&mut pmm);
+                        core::hint::spin_loop();
+                    }
+                }
+                Err(_) => early_serial_write_str("WICOFE: PMM_INIT_FAILED\n"),
             }
         }
+        Err(_) => early_serial_write_str("WICOFE: BOOTINFO_INVALID\n"),
     }
 
-    // Fail-stop on any malformed or unsupported handoff. A serial/firmware
-    // diagnostic path will replace this silent halt in a later milestone.
+    early_serial_write_str("WICOFE: BOOT_FAILED\n");
     loop {
         core::hint::spin_loop();
     }
