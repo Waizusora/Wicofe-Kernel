@@ -33,9 +33,7 @@ pub use limine::{
     normalize_hhdm_response, normalize_memory_kind, normalize_memory_map_response,
     normalize_module_response,
 };
-pub use pmm_metadata::{
-    PmmMetadataError, PmmMetadataLayout, plan_pmm_metadata_placement,
-};
+pub use pmm_metadata::{PmmMetadataError, PmmMetadataLayout, plan_pmm_metadata_placement};
 pub use requests::{
     BaseRevisionTag, LIMINE_BASE_REVISION, LIMINE_BASE_REVISION_TAG, LIMINE_COMMON_MAGIC,
     LIMINE_EXECUTABLE_ADDRESS_REQUEST, LIMINE_FRAMEBUFFER_REQUEST, LIMINE_HHDM_REQUEST,
