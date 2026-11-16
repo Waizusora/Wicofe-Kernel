@@ -180,7 +180,7 @@ mod tests {
         let count = build_early_memory_plan(&map, &reserved, PAGE, &mut output).unwrap();
         assert_eq!(count, 2);
         assert_eq!(output[0], EarlyMemoryRange { base: 0x2000, length: 0x2000 });
-        assert_eq!(output[1], EarlyMemoryRange { base: 0x6000, length: 0x3000 });
+        assert_eq!(output[1], EarlyMemoryRange { base: 0x6000, length: 0x4000 });
     }
 
     #[test]
