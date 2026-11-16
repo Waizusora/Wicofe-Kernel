@@ -13,7 +13,8 @@ This directory is exclusively for Wicofe kernel architecture, implementation con
 - [Memory management](MEMORY_MANAGEMENT_SPEC.md)
 - [Boot protocol and handoff](BOOT_SPEC.md)
 - [Osynit PID 1 kernel requirements 0.1](OSYNIT_PID1_KERNEL_REQUIREMENTS_0.1.md) — kernel mechanisms and conformance boundary.
-- [x86-64 kernel image](X86_64_KERNEL_IMAGE.md)
+- [x86-64 kernel image and boot validation](X86_64_KERNEL_IMAGE.md)
+- [Limine QEMU boot procedure](LIMINE_QEMU_BOOT.md)
 
 ## Kernel scope
 
