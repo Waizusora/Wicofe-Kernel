@@ -1,8 +1,8 @@
 //! Limine bootstrap entry.
 //!
 //! This entry consumes protocol responses into fixed-capacity kernel-owned
-//! storage. It still fail-stops after validation because diagnostics,
-//! exception vectors, and memory management are not initialized.
+//! storage, reports early milestones over COM1 on x86-64, and initializes the
+//! bootstrap PMM. It then fail-stops until VMM and exception handling exist.
 
 use super::consume_limine_boot_info;
 use super::info::{BootModule, MemoryRegion, MemoryRegionKind};
