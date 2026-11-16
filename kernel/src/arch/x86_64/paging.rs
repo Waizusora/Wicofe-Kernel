@@ -458,9 +458,16 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
                 }
             }
             map_leaf(
-                &mut self.memory, root, virtual_address, physical_base, page_size,
-                flags, physical_address_bits, nx_enabled,
-            ).map_err(PageTableHierarchyError::Paging)
+                &mut self.memory,
+                root,
+                virtual_address,
+                physical_base,
+                page_size,
+                flags,
+                physical_address_bits,
+                nx_enabled,
+            )
+            .map_err(PageTableHierarchyError::Paging)
         })();
 
         if result.is_err() {
@@ -487,11 +494,17 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         created: &mut [Option<(PhysAddr, u16, PhysAddr)>; 3],
         created_count: &mut usize,
     ) -> Result<PhysAddr, PageTableHierarchyError> {
-        let current = self.memory.read_entry(parent, index)
-            .ok_or(PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed))?;
+        let current =
+            self.memory
+                .read_entry(parent, index)
+                .ok_or(PageTableHierarchyError::Paging(
+                    X86PagingError::MemoryAccessFailed,
+                ))?;
         if current & PRESENT != 0 {
             if current & HUGE_PAGE != 0 {
-                return Err(PageTableHierarchyError::Paging(X86PagingError::InvalidHierarchy));
+                return Err(PageTableHierarchyError::Paging(
+                    X86PagingError::InvalidHierarchy,
+                ));
             }
             let mask = physical_address_mask(physical_address_bits)
                 .map_err(PageTableHierarchyError::Paging)?;
@@ -499,16 +512,19 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
             return Ok(PhysAddr::new(current & mask));
         }
 
-        let child = self.allocate_zeroed_table().map_err(PageTableHierarchyError::Pool)?;
+        let child = self
+            .allocate_zeroed_table()
+            .map_err(PageTableHierarchyError::Pool)?;
         let mut entry = child.get() | PRESENT | WRITABLE;
         if flags.is_user() {
             entry |= USER;
         }
         if !self.memory.write_entry(parent, index, entry) {
             // SAFETY: The child was allocated but never linked into a hierarchy.
-            unsafe { self.release_table_frame(child) }
-                .map_err(PageTableHierarchyError::Pool)?;
-            return Err(PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed));
+            unsafe { self.release_table_frame(child) }.map_err(PageTableHierarchyError::Pool)?;
+            return Err(PageTableHierarchyError::Paging(
+                X86PagingError::MemoryAccessFailed,
+            ));
         }
         created[*created_count] = Some((parent, index, child));
         *created_count += 1;
@@ -947,8 +963,7 @@ mod tests {
 
         // SAFETY: The aligned backing buffer maps all candidate frames through
         // the synthetic HHDM and remains exclusively borrowed by this test.
-        let mut pool =
-            unsafe { PageTableFramePool::<4>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let mut pool = unsafe { PageTableFramePool::<4>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
         let root = pool.allocate_zeroed_table().unwrap();
         let virtual_address = VirtAddr::new(0xffff_8000_1234_5000);
         // SAFETY: The root is private and has not been activated or published.
@@ -1005,8 +1020,7 @@ mod tests {
 
         // Three slots allow the root and only two of the three child tables.
         // SAFETY: The backing buffer is a valid private synthetic HHDM.
-        let mut pool =
-            unsafe { PageTableFramePool::<3>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let mut pool = unsafe { PageTableFramePool::<3>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
         let root = pool.allocate_zeroed_table().unwrap();
         let result = unsafe {
             pool.map_leaf_with_tables(
