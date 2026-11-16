@@ -187,6 +187,84 @@ pub trait PageTableMemory {
     fn write_entry(&mut self, table: PhysAddr, index: u16, value: u64) -> bool;
 }
 
+/// Direct page-table memory access through the active Limine HHDM.
+///
+/// This adapter only translates physical table addresses to their HHDM
+/// aliases. It does not allocate tables, establish mappings, serialize
+/// concurrent writers, or perform TLB invalidation.
+pub struct HhdmPageTableMemory {
+    hhdm_offset: u64,
+    physical_address_bits: u8,
+}
+
+impl HhdmPageTableMemory {
+    /// Create an HHDM-backed page-table accessor.
+    ///
+    /// # Safety
+    /// The caller must guarantee that the HHDM is active and remains active
+    /// for the lifetime of this value, and that every physical 4 KiB table
+    /// page passed to its access methods is mapped writable through
+    /// `hhdm_offset + physical_address`. The caller must also ensure that
+    /// table pages remain allocated and are not concurrently mutated except
+    /// under an external page-table synchronization protocol.
+    pub unsafe fn new(
+        hhdm_offset: u64,
+        physical_address_bits: u8,
+    ) -> Result<Self, X86PagingError> {
+        if !(32..=52).contains(&physical_address_bits) {
+            return Err(X86PagingError::InvalidPhysicalAddressWidth);
+        }
+        Ok(Self {
+            hhdm_offset,
+            physical_address_bits,
+        })
+    }
+
+    fn entry_pointer(&self, table: PhysAddr, index: u16) -> Option<*mut u64> {
+        if index >= 512 || table.get() & PAGE_OFFSET_MASK != 0 {
+            return None;
+        }
+
+        let physical_limit = 1u64.checked_shl(self.physical_address_bits as u32)?;
+        let physical_end = table.get().checked_add(4096)?;
+        if physical_end > physical_limit {
+            return None;
+        }
+
+        let virtual_base = self.hhdm_offset.checked_add(table.get())?;
+        let virtual_last = virtual_base.checked_add(4095)?;
+        let geometry = AddressGeometry::new(48).ok()?;
+        if !geometry.is_canonical(VirtAddr::new(virtual_base))
+            || !geometry.is_canonical(VirtAddr::new(virtual_last))
+        {
+            return None;
+        }
+
+        let address = usize::try_from(virtual_base).ok()?;
+        address.checked_add(4095)?;
+        Some((address as *mut u64).wrapping_add(index as usize))
+    }
+}
+
+impl PageTableMemory for HhdmPageTableMemory {
+    fn read_entry(&self, table: PhysAddr, index: u16) -> Option<u64> {
+        let pointer = self.entry_pointer(table, index)?;
+        // SAFETY: Construction is unsafe and its contract guarantees that
+        // every accessed table page is mapped and readable through the HHDM.
+        Some(unsafe { core::ptr::read_volatile(pointer) })
+    }
+
+    fn write_entry(&mut self, table: PhysAddr, index: u16, value: u64) -> bool {
+        let Some(pointer) = self.entry_pointer(table, index) else {
+            return false;
+        };
+        // SAFETY: Construction is unsafe and its contract guarantees that
+        // every accessed table page is mapped writable through the HHDM.
+        unsafe { core::ptr::write_volatile(pointer, value) };
+        true
+    }
+}
+
 /// Result of translating a virtual address through a four-level hierarchy.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Translation {
