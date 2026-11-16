@@ -35,7 +35,7 @@ This preserves the BSD-2-Clause notice and the upstream third-party attribution/
 
 ## Build and test toolchain findings
 
-The Limine host utility is taken from the pinned binary release archive; no GNU Make or compiler is needed to rebuild it in this workflow. Archive SHA-256 verification and safe `.tar.xz` extraction use Python's standard library (`hashlib` and `tarfile` with the data extraction filter), removing GNU coreutils `sha256sum` and GNU tar from the build script. ELF inspection uses `llvm-readelf-22` rather than GNU binutils `readelf.
+The Limine host utility is compiled directly from the root-level C99 source in the pinned binary archive using pinned `clang-22`; GNU Make is no longer invoked. Archive SHA-256 verification and safe `.tar.xz` extraction use Python's standard library (`hashlib` and `tarfile` with the data extraction filter), removing GNU coreutils `sha256sum` and GNU tar from the build script. ELF inspection uses `llvm-readelf-22` rather than GNU binutils `readelf.
 
 The remaining CI dependencies include:
 
