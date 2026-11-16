@@ -525,6 +525,48 @@ mod tests {
     }
 
     #[test]
+    fn two_mib_leaf_checks_both_parent_levels() {
+        let mut tables = synthetic_four_level_tables();
+        let root = PhysAddr::new(0x1000);
+        let root_entry = tables.read_entry(root, 256).unwrap();
+        assert!(tables.write_entry(root, 256, root_entry | USER));
+        let pdpt_entry = tables.read_entry(PhysAddr::new(0x2000), 0).unwrap();
+
+        assert_eq!(
+            map_leaf(
+                &mut tables,
+                root,
+                VirtAddr::new(0xffff_8000_0040_0000),
+                PhysAddr::new(0x80_0000),
+                PageSize::Size2MiB,
+                PageFlags::USER_READ_ONLY,
+                48,
+                true,
+            ),
+            Err(X86PagingError::InsufficientIntermediatePermissions)
+        );
+
+        assert!(tables.write_entry(
+            PhysAddr::new(0x2000),
+            0,
+            pdpt_entry | USER,
+        ));
+        map_leaf(
+            &mut tables,
+            root,
+            VirtAddr::new(0xffff_8000_0040_0000),
+            PhysAddr::new(0x80_0000),
+            PageSize::Size2MiB,
+            PageFlags::USER_READ_ONLY,
+            48,
+            true,
+        )
+        .unwrap();
+        let leaf = tables.read_entry(PhysAddr::new(0x3000), 2).unwrap();
+        assert_ne!(leaf & USER, 0);
+    }
+
+    #[test]
     fn writable_leaf_requires_writable_intermediate_entries() {
         let mut tables = synthetic_four_level_tables();
         let root = PhysAddr::new(0x1000);
