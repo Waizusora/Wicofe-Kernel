@@ -200,6 +200,34 @@ pipeline or activate PMM during a real Limine boot. HHDM mapping coverage,
 architecture page-table state, and exclusive metadata ownership remain
 preconditions that must be established by the eventual boot integration.
 
+### 4.1.6 Limine bootstrap PMM activation
+
+The Limine entry path now performs the initial memory-planning sequence after
+boot information validation:
+
+1. Materialize the kernel-image and module reservation ledger (with capacity
+   for an optional framebuffer reservation).
+2. Build the page-aligned usable-memory plan from the normalized memory map.
+3. Place the PMM metadata backing extent and remove it from allocatable ranges.
+4. Construct the PMM using the HHDM-backed metadata extent.
+
+The planning buffers are fixed-capacity static storage inside the kernel image
+and are therefore covered by the kernel-image reservation. Their capacities
+are bounded by the boot memory-map and module response capacities. The PMM is
+kept alive after initialization, but general allocation is not enabled yet:
+VMM, exception handling, diagnostics, and SMP synchronization are not ready.
+
+A failure at any step still enters the existing silent fail-stop path. The
+current Limine consumer does not yet decode framebuffer details, so the
+framebuffer remains excluded by its non-usable memory-map classification but
+is not separately represented in the explicit reservation ledger.
+
+CI target checks compile the `target_os = "none"` entry path; they do not
+execute it. This milestone has not yet been validated by producing a final
+linked Limine ELF or booting it in QEMU or on hardware. Runtime verification
+must confirm HHDM coverage and the selected metadata physical extent before
+PMM activation is considered boot-tested.
+
 ### 4.2 Early allocator
 
 A bounded early allocator is used before the full PMM and kernel heap are ready. It may use bitmap frame tracking and monotonic allocation for a limited bootstrap phase.
