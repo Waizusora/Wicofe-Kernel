@@ -170,6 +170,36 @@ This bitmap allocator is the correctness baseline for frame ownership. The
 buddy allocator, zone constraints, SMP synchronization, and integration with
 the VMM remain subsequent milestones.
 
+### 4.1.5 HHDM-backed PMM metadata initialization
+
+The metadata layout now includes an explicit `frame_metadata_offset`. The
+bitmap begins at the reserved physical base; the frame-record array begins
+after the bitmap at an 8-byte-aligned offset. The total backing extent remains
+rounded up to the selected page size. This avoids constructing an improperly
+aligned `FrameMetadata` slice when the bitmap byte count is not naturally
+aligned.
+
+The PMM exposes an unsafe HHDM-backed constructor. It checks the layout's
+arithmetic, page alignment, metadata capacity, record alignment, and virtual
+address conversion before forming slices and initializing the allocator. The
+caller must guarantee that the entire reserved physical extent is writable,
+continuously mapped through the supplied HHDM offset, exclusively owned by
+the PMM, and mapped for the allocator's full lifetime. A numeric HHDM offset
+alone cannot prove that a physical range is actually mapped.
+
+The constructor initializes the bitmap and frame records for the supplied
+post-reservation candidate ranges. The metadata planner may conservatively
+size storage using the pre-metadata candidate frame count; the PMM initializes
+and uses only the number of frames remaining after its backing extent has
+been removed. No bootloader-reclaimable range is added to the allocator.
+
+This is a tested HHDM-backed initialization API, not yet invocation from the
+kernel entry path. The current bootstrap still validates boot information and
+fail-stops; it does not yet construct the complete reservation/early-memory
+pipeline or activate PMM during a real Limine boot. HHDM mapping coverage,
+architecture page-table state, and exclusive metadata ownership remain
+preconditions that must be established by the eventual boot integration.
+
 ### 4.2 Early allocator
 
 A bounded early allocator is used before the full PMM and kernel heap are ready. It may use bitmap frame tracking and monotonic allocation for a limited bootstrap phase.
