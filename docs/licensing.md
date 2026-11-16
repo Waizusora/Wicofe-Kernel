@@ -22,14 +22,14 @@ The upstream `3RDPARTY.md` documents bundled components under 0BSD, BSD-2-Clause
 
 ## Distribution notices
 
-The exact upstream `COPYING` and `3RDPARTY.md` files are preserved in:
+The exact upstream `COPYING` and `3RDPARTY.md` files are preserved in the repository; the `LICENSE` file from the pinned binary archive is also copied when present. The ISO build verifies the archive's `3RDPARTY.md` against the pinned source copy.
 
 - `third_party/licenses/limine-12.9.6/COPYING`
 - `third_party/licenses/limine-12.9.6/3RDPARTY.md`
 
 The ISO build script now requires both files and copies them to:
 
-`/boot/limine/licenses/limine-12.9.6/`
+`/boot/limine/licenses/limine-12.9.6/` (including the archive `LICENSE` when present)
 
 This preserves the BSD-2-Clause notice and the upstream third-party attribution/license notices alongside the Limine binaries. The resulting ISO still requires a build-and-inspect verification after this change; no successful ISO build is claimed here.
 
