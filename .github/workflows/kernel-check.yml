@@ -55,7 +55,32 @@ jobs:
             curl --version | head -n 1
             xorriso -version | head -n 1
             qemu-system-x86_64 --version | head -n 1
+            echo "ImageOS=${ImageOS:-}" 
+            echo "ImageVersion=${ImageVersion:-}"
           } > target/ci-audit/runner-tools.txt
+          python3 - <<'PY'
+          import subprocess
+          from pathlib import Path
+          packages = {}
+          for tool in ("make", "tar", "sha256sum", "curl", "xorriso", "qemu-system-x86_64", "readelf"):
+              executable = subprocess.run(["which", tool], capture_output=True, text=True).stdout.strip()
+              if not executable:
+                  continue
+              owner = subprocess.run(["dpkg-query", "-S", executable], capture_output=True, text=True).stdout.splitlines()
+              if not owner:
+                  continue
+              package = owner[0].split(": ", 1)[0].split(":", 1)[0]
+              version = subprocess.run(["dpkg-query", "-W", "-f=${Version}", package],
+                                       capture_output=True, text=True).stdout.strip()
+              if version:
+                  packages[package] = version
+          existing = {line.split("\t", 1)[0] for line in
+                      Path("target/ci-audit/packages.changed.tsv").read_text().splitlines() if "\t" in line}
+          with Path("target/ci-audit/packages.changed.tsv").open("a") as out:
+              for package, version in sorted(packages.items()):
+                  if package not in existing:
+                      out.write(f"{package}\tPREINSTALLED\t{version}\n")
+          PY
       - name: Install Rust
         uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable source commit
         with:
