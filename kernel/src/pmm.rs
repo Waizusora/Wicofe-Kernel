@@ -85,8 +85,8 @@ impl<'a> Pmm<'a> {
                 return Err(PmmError::InvalidRanges);
             }
             previous_end = Some(end);
-            let frames = usize::try_from(range.length / page)
-                .map_err(|_| PmmError::ArithmeticOverflow)?;
+            let frames =
+                usize::try_from(range.length / page).map_err(|_| PmmError::ArithmeticOverflow)?;
             total_frames = total_frames
                 .checked_add(frames)
                 .ok_or(PmmError::ArithmeticOverflow)?;
@@ -148,7 +148,9 @@ impl<'a> Pmm<'a> {
                 };
                 self.free_frames -= 1;
                 self.next_hint = (index + 1) % self.frame_count;
-                return self.physical_address(index).ok_or(PmmError::ArithmeticOverflow);
+                return self
+                    .physical_address(index)
+                    .ok_or(PmmError::ArithmeticOverflow);
             }
         }
         Err(PmmError::OutOfMemory)
@@ -298,8 +300,14 @@ mod tests {
         let mut pmm = Pmm::new(&ranges, PAGE, &mut bitmap, &mut metadata).unwrap();
         let frame = pmm.allocate_frame(1).unwrap();
         assert_eq!(pmm.allocate_frame(2), Err(PmmError::OutOfMemory));
-        assert_eq!(pmm.free_frame(PhysAddr::new(0x1001)), Err(PmmError::UnalignedAddress));
-        assert_eq!(pmm.free_frame(PhysAddr::new(0x9000)), Err(PmmError::UntrackedFrame));
+        assert_eq!(
+            pmm.free_frame(PhysAddr::new(0x1001)),
+            Err(PmmError::UnalignedAddress)
+        );
+        assert_eq!(
+            pmm.free_frame(PhysAddr::new(0x9000)),
+            Err(PmmError::UntrackedFrame)
+        );
         pmm.free_frame(frame).unwrap();
         assert_eq!(pmm.free_frame(frame), Err(PmmError::DoubleFree));
     }
@@ -308,7 +316,11 @@ mod tests {
     fn rejects_invalid_ranges_and_insufficient_storage_transactionally() {
         let ranges = [range(0x3000, 0x1000), range(0x1000, 0x1000)];
         let mut bitmap = [0xa5u8; 1];
-        let mut metadata = [FrameMetadata { owner_tag: 9, flags: 1, allocation_id: 2 }; 2];
+        let mut metadata = [FrameMetadata {
+            owner_tag: 9,
+            flags: 1,
+            allocation_id: 2,
+        }; 2];
         assert_eq!(
             Pmm::new(&ranges, PAGE, &mut bitmap, &mut metadata).err(),
             Some(PmmError::InvalidRanges)
@@ -321,7 +333,10 @@ mod tests {
         let mut enough_metadata = [FrameMetadata::default(); 2];
         assert_eq!(
             Pmm::new(&valid, PAGE, &mut short_bitmap[..0], &mut enough_metadata).err(),
-            Some(PmmError::InsufficientBitmap { required: 1, available: 0 })
+            Some(PmmError::InsufficientBitmap {
+                required: 1,
+                available: 0
+            })
         );
         assert_eq!(short_bitmap, [0x5a]);
     }
@@ -336,7 +351,8 @@ mod tests {
                 PAGE,
                 &mut bitmap,
                 &mut metadata
-            ).err(),
+            )
+            .err(),
             Some(PmmError::InvalidRanges)
         );
         assert_eq!(
@@ -344,7 +360,13 @@ mod tests {
             Some(PmmError::InvalidRanges)
         );
         assert_eq!(
-            Pmm::new(&[range(u64::MAX - 0xfff, 0x1000)], PAGE, &mut bitmap, &mut metadata).err(),
+            Pmm::new(
+                &[range(u64::MAX - 0xfff, 0x1000)],
+                PAGE,
+                &mut bitmap,
+                &mut metadata
+            )
+            .err(),
             Some(PmmError::ArithmeticOverflow)
         );
     }
