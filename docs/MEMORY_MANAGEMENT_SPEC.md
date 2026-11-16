@@ -142,6 +142,34 @@ ownership. The caller must complete those operations before PMM activation.
 The per-frame record size and eventual record encoding remain implementation
 parameters rather than a stable ABI.
 
+### 4.1.4 Initial bitmap frame allocator
+
+The first executable PMM implementation is a bounded, single-frame bitmap
+allocator over the discontiguous ranges produced by the early-memory pipeline.
+It receives caller-owned bitmap and per-frame metadata slices; initialization
+checks page size, range ordering, alignment, overlap, arithmetic, and storage
+capacity before modifying either slice.
+
+The bitmap is the authoritative allocation state (one bit per frame). A
+16-byte `FrameMetadata` record stores a caller-defined owner tag, diagnostic
+flags, and allocation identifier. The allocator supports single-frame
+allocation, release, free/allocated counters, and metadata inspection. It
+rejects unaligned and untracked addresses, double-free, and exhaustion. The
+allocation scan uses a next-fit hint and naturally traverses multiple physical
+ranges without treating gaps as RAM.
+
+The initial implementation is explicitly single-core. Callers must serialize
+all access; it must not be used concurrently from multiple CPUs or interrupt
+contexts until synchronization and execution-context rules are implemented.
+The caller must ensure the supplied ranges already exclude the kernel image,
+boot modules, framebuffer, PMM metadata backing, and every other reservation.
+The allocator does not map physical metadata storage, reclaim bootloader memory,
+initialize page tables, or provide contiguous multi-frame allocations.
+
+This bitmap allocator is the correctness baseline for frame ownership. The
+buddy allocator, zone constraints, SMP synchronization, and integration with
+the VMM remain subsequent milestones.
+
 ### 4.2 Early allocator
 
 A bounded early allocator is used before the full PMM and kernel heap are ready. It may use bitmap frame tracking and monotonic allocation for a limited bootstrap phase.
