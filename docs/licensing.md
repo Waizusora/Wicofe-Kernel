@@ -50,7 +50,7 @@ QEMU is retained temporarily because it provides the current automated PC/BIOS b
 
 ## Full CI package-closure evidence — 2026-11-16
 
-The latest Kernel CI run [43880975214](https://github.com/Waizusora/Wicofe-Kernel/actions/runs/43880975214) completed successfully and uploaded [build and package-license evidence artifact 14232042726](https://github.com/Waizusora/Wicofe-Kernel/actions/runs/43880975214/artifacts/14232042726). It used the pinned Wicofe-Tools auditor revision `cccc4c197687ce8fd629f9b9d8a7d95d4e89cddc`.
+The latest Kernel CI run [43881542034](https://github.com/Waizusora/Wicofe-Kernel/actions/runs/43881542034) completed successfully and uploaded [build and package-license evidence artifact 14231614886](https://github.com/Waizusora/Wicofe-Kernel/actions/runs/43881542034/artifacts/14231614886). It used the pinned Wicofe-Tools auditor revision `cccc4c197687ce8fd629f9b9d8a7d95d4e89cddc`.
 
 The same run verified formatting, unit tests, x86-64 target/build, Limine ISO generation, ISO notice presence, QEMU BIOS boot and the AArch64 target check. This demonstrates current workflow functionality only; it does not waive the license policy.
 
