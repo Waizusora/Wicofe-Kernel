@@ -1006,7 +1006,7 @@ mod tests {
         );
         assert_eq!(pool.owned_frame_count(), 1);
         assert_eq!(pool.memory().read_entry(root, 256), Some(0));
-        assert_eq!(pmm.free_frames(), 5);
+        assert_eq!(pool.pmm.free_frames(), 5);
     }
 
     #[test]
