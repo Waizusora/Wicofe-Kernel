@@ -26,7 +26,7 @@ const EARLY_MODULE_CAPACITY: usize = 64;
 
 const EARLY_MEMORY_PLAN_CAPACITY: usize = EARLY_MEMORY_MAP_CAPACITY;
 const PMM_RANGE_CAPACITY: usize = EARLY_MEMORY_PLAN_CAPACITY;
-const BOOT_RESERVATION_CAPACITY: usize = 1 + EARLY_MODULE_CAPACITY;
+const BOOT_RESERVATION_CAPACITY: usize = 2 + EARLY_MODULE_CAPACITY;
 
 const EMPTY_EARLY_RANGE: EarlyMemoryRange = EarlyMemoryRange { base: 0, length: 0 };
 const EMPTY_RESERVATION: BootReservation = BootReservation {
