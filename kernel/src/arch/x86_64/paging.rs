@@ -207,10 +207,7 @@ impl HhdmPageTableMemory {
     /// `hhdm_offset + physical_address`. The caller must also ensure that
     /// table pages remain allocated and are not concurrently mutated except
     /// under an external page-table synchronization protocol.
-    pub unsafe fn new(
-        hhdm_offset: u64,
-        physical_address_bits: u8,
-    ) -> Result<Self, X86PagingError> {
+    pub unsafe fn new(hhdm_offset: u64, physical_address_bits: u8) -> Result<Self, X86PagingError> {
         if !(32..=52).contains(&physical_address_bits) {
             return Err(X86PagingError::InvalidPhysicalAddressWidth);
         }
@@ -576,8 +573,7 @@ mod tests {
 
         // A valid physical table whose HHDM alias would overflow is also rejected.
         // SAFETY: The overflowing alias is rejected before any pointer is dereferenced.
-        let overflowing =
-            unsafe { HhdmPageTableMemory::new(u64::MAX - 0x7ff, 48) }.unwrap();
+        let overflowing = unsafe { HhdmPageTableMemory::new(u64::MAX - 0x7ff, 48) }.unwrap();
         assert_eq!(overflowing.read_entry(PhysAddr::new(0x1000), 0), None);
     }
 
