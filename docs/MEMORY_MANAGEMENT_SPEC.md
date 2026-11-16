@@ -330,21 +330,30 @@ permissions. Synthetic table tests cover map/translate/unmap, huge-page
 translation, missing intermediate tables, invalid roots, 4 KiB user access,
 2 MiB parent permissions, and writable-parent restrictions.
 
-This remains a low-level, inactive page-table primitive. It does not allocate
-or zero intermediate tables, track ownership of page-table frames, reclaim
-empty tables, install a new CR3, modify Limine's active mappings, or issue
-TLB invalidations. The current memory interface is an abstraction; a
-production HHDM-backed implementation and transactional PMM integration are
-still required. Parent permission propagation is intentionally not provided;
-callers must construct a hierarchy with sufficient parent permissions.
-Page-fault integration and SMP/TLB synchronization are also not implemented.
-The kernel must preserve Limine's inherited page tables until a complete
-replacement hierarchy and all required identity, kernel, HHDM, and device
-mappings have been built and validated. No runtime page-table mutation is
-enabled by the boot path.
+The backend now includes an HHDM-backed page-table memory adapter and a
+bounded PMM-backed frame pool. The pool zeroes allocated table frames, tracks
+their ownership, and can transactionally construct missing intermediate
+tables for an inactive, unpublished root. A matching unmap operation can
+reclaim empty intermediate tables, but only when those frames are owned by
+the same pool; it never frees the root or the mapped data frame. Reclamation
+proceeds from the lowest level upward and detaches each parent entry before
+returning its child frame to PMM. If a table is not owned or is not empty, it
+is retained.
 
-The parent-permission validation is covered by synthetic unit tests only. It
-does not yet demonstrate a live CR3 update, hardware-enforced user/kernel
+These operations are still restricted to private, inactive address spaces.
+The caller must guarantee that no CPU can walk the hierarchy and that no stale
+TLB translation can reference a removed mapping or reclaimed table. The
+backend does not activate CR3, invalidate TLBs, coordinate SMP shootdowns,
+modify Limine's active mappings, or provide page-fault integration. Parent
+permission propagation is intentionally not provided; existing parent
+entries must already permit the requested access. The kernel must preserve
+Limine's inherited page tables until a complete replacement hierarchy and all
+required identity, kernel, HHDM, and device mappings have been built and
+validated. No runtime page-table mutation is enabled by the boot path.
+
+Synthetic tests cover PMM frame ownership, zeroing, hierarchy construction
+and rollback, and bottom-up reclamation of an empty 4 KiB hierarchy. This
+does not demonstrate a live CR3 update, hardware-enforced user/kernel
 isolation, TLB invalidation, or a page-fault diagnostic path.
 
 Responsibilities include:
