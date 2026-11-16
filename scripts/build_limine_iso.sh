@@ -14,7 +14,7 @@ curl --fail --location --retry 3 --output "$ARCHIVE" "$ARCHIVE_URL"
 echo "${LIMINE_ARCHIVE_SHA256}  $ARCHIVE" | sha256sum --check
 tar -xJf "$ARCHIVE" -C "$WORK_DIR"
 LIMINE_DIR="$WORK_DIR/limine-binary"
-for required in limine-bios.sys limine-bios-cd.bin limine-uefi-cd.bin BOOTX64.EFI; do
+for required in limine-bios.sys limine-bios-cd.bin; do
     if [[ ! -e "$LIMINE_DIR/$required" ]]; then
         echo "Missing Limine release file: $required" >&2
         exit 1
@@ -26,18 +26,13 @@ if [[ ! -x "$LIMINE_DIR/limine" ]]; then
     exit 1
 fi
 ISO_ROOT="$WORK_DIR/iso_root"
-mkdir -p "$ISO_ROOT/boot/limine" "$ISO_ROOT/EFI/BOOT"
+mkdir -p "$ISO_ROOT/boot/limine"
 cp "$ROOT_DIR/target/x86_64-unknown-none/debug/wicofe-kernel" "$ISO_ROOT/boot/wicofe-kernel"
 cp "$ROOT_DIR/limine/limine.conf" "$ISO_ROOT/boot/limine/limine.conf"
-cp "$LIMINE_DIR/limine-bios.sys" "$LIMINE_DIR/limine-bios-cd.bin" \
-   "$LIMINE_DIR/limine-uefi-cd.bin" "$ISO_ROOT/boot/limine/"
-cp "$LIMINE_DIR/BOOTX64.EFI" "$ISO_ROOT/EFI/BOOT/BOOTX64.EFI"
+cp "$LIMINE_DIR/limine-bios.sys" "$LIMINE_DIR/limine-bios-cd.bin" "$ISO_ROOT/boot/limine/"
 xorriso -as mkisofs -R -r -J \
     -b boot/limine/limine-bios-cd.bin \
-    -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
-    -apm-block-size 2048 \
-    --efi-boot boot/limine/limine-uefi-cd.bin \
-    -efi-boot-part -efi-boot-image --protective-msdos-label \
+    -no-emul-boot -boot-load-size 4 -boot-info-table \
     "$ISO_ROOT" -o "$OUTPUT_PATH"
 "$LIMINE_DIR/limine" bios-install "$OUTPUT_PATH"
-echo "Created bootable WICOFE ISO: $OUTPUT_PATH"
+echo "Created BIOS-bootable WICOFE ISO: $OUTPUT_PATH"
