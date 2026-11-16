@@ -48,6 +48,54 @@ The remaining CI dependencies include:
 
 QEMU is retained temporarily because it provides the current automated PC/BIOS boot test. Bochs is a candidate x86 emulator under LGPL-2.1, but it requires conditional approval and a parity test; it does not cover AArch64. xorriso is retained temporarily because it reliably creates the current BIOS-bootable ISO. cdrtools/mkisofs (CDDL-1.0) and libisofs/libburn (LGPL-family) are candidates, each requiring license review and a bootable-ISO parity test. These GPL tools remain release blockers under the literal Policy 0.2 rule; they have not been silently exempted because they are not shipped.
 
+## Full CI package-closure evidence — 2026-11-16
+
+The latest Kernel CI run [43880975214](https://github.com/Waizusora/Wicofe-Kernel/actions/runs/43880975214) completed successfully and uploaded [build and package-license evidence artifact 14232042726](https://github.com/Waizusora/Wicofe-Kernel/actions/runs/43880975214/artifacts/14232042726). It used the pinned Wicofe-Tools auditor revision `cccc4c197687ce8fd629f9b9d8a7d95d4e89cddc`.
+
+The same run verified formatting, unit tests, x86-64 target/build, Limine ISO generation, ISO notice presence, QEMU BIOS boot and the AArch64 target check. This demonstrates current workflow functionality only; it does not waive the license policy.
+
+The installed CI package delta contains 103 package records:
+
+| Package inventory status | Count |
+|---|---:|
+| REJECTED | 15 |
+| NEEDS_REVIEW | 84 |
+| UNKNOWN | 4 |
+| Total | 103 |
+
+The 15 REJECTED package records are:
+
+| Package | Version | Primary license evidence |
+|---|---|---|
+| `cpu-checker` | `0.7-1.4build1` | GPL-3 |
+| `ipxe-qemu` | `1.21.1+git-20250829.969ce2c55+dfsg-3ubuntu2` | GPL-2+ |
+| `libburn4t64` | `1.5.6-1.2build1` | GPL-2+ |
+| `libcdparanoia0` | `3.10.2+debian-14ubuntu2` | GPL-2+ |
+| `libfdt1` | `1.7.2-2ubuntu1` | GPL-2+ |
+| `libfftw3-single3` | `3.3.10-2fakesync1build3` | GPL-2+ |
+| `libiscsi7` | `1.20.0-4build1` | GPL-2+ |
+| `libisoburn1t64` | `1:1.5.6-1.1ubuntu4` | GPL-2+ |
+| `libisofs6t64` | `1.5.6.pl01-1.1ubuntu3` | GPL-2+ |
+| `libv4l-0t64` | `1.32.0-2ubuntu1` | GPL-2 |
+| `libv4lconvert0t64` | `1.32.0-2ubuntu1` | GPL-2 |
+| `libvte-2.91-0` | `0.84.0-2` | GPL-3+ AND LGPL-3+ AND Expat |
+| `libvte-2.91-common` | `0.84.0-2` | GPL-3+ AND LGPL-3+ AND Expat |
+| `msr-tools` | `1.3+git20220805.7d78c80-1ubuntu0.1` | GPL-2 |
+| `xorriso` | `1:1.5.6-1.1ubuntu4` | GPL-2+ |
+
+These records come from the installed package delta, not a proven minimal runtime closure. The audit has not yet mapped each package to a direct dependency, transitive dependency, recommended package or preinstalled host utility. The xorriso closure is directly relevant: `libburn4t64`, `libisoburn1t64` and `libisofs6t64` are part of its installed library stack. The remaining records require dependency-edge/usage mapping before deciding which packages can be eliminated by a minimal headless package selection.
+
+Three multi-license expressions were correctly held at NEEDS_REVIEW rather than automatically rejected:
+- `ipxe-qemu-256k-compat-efi-roms`: GPL-2+ OR UBDL.
+- `libflac14`: GPL-2+ OR LGPL-2.1+.
+- `librdmacm1t64`: BSD-MIT OR GPL-2.
+
+A fourth package, `libfdt1`, remains REJECTED because its primary `Files: *` declaration is GPL-2+; a BSD notice in another file stanza does not prove that the installed library payload is selectable under BSD.
+
+Twenty-seven package records contain LGPL declarations in their copyright metadata. They remain NEEDS_REVIEW; no LGPL approval is recorded. The QEMU package family also has a non-SPDX `GPL2-or-LGPL2-with-additions` copyright expression and remains NEEDS_REVIEW in the package-level inventory. The source-level cross-repository inventory conservatively marks the QEMU emulator as GPL from its upstream COPYING evidence. This discrepancy requires file/binary-level license mapping; QEMU remains BLOCKED and must not be treated as approved.
+
+The four UNKNOWN package records and all 84 NEEDS_REVIEW records are detailed in `ci-audit/system-packages.json` inside the artifact. The package inventory is additional to the 29-repository source/build graph; it is not merged or deduplicated into that report.
+
 ## Remaining review
 
 - Review Limine's binary archive contents and reconcile them with `3RDPARTY.md`.
