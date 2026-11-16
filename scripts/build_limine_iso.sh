@@ -14,13 +14,17 @@ curl --fail --location --retry 3 --output "$ARCHIVE" "$ARCHIVE_URL"
 echo "${LIMINE_ARCHIVE_SHA256}  $ARCHIVE" | sha256sum --check
 tar -xJf "$ARCHIVE" -C "$WORK_DIR"
 LIMINE_DIR="$WORK_DIR/limine-binary"
-for required in limine limine-bios.sys limine-bios-cd.bin limine-uefi-cd.bin BOOTX64.EFI; do
+for required in limine-bios.sys limine-bios-cd.bin limine-uefi-cd.bin BOOTX64.EFI; do
     if [[ ! -e "$LIMINE_DIR/$required" ]]; then
         echo "Missing Limine release file: $required" >&2
         exit 1
     fi
 done
 make -C "$LIMINE_DIR"
+if [[ ! -x "$LIMINE_DIR/limine" ]]; then
+    echo "Limine host utility was not built" >&2
+    exit 1
+fi
 ISO_ROOT="$WORK_DIR/iso_root"
 mkdir -p "$ISO_ROOT/boot/limine" "$ISO_ROOT/EFI/BOOT"
 cp "$ROOT_DIR/target/x86_64-unknown-none/debug/wicofe-kernel" "$ISO_ROOT/boot/wicofe-kernel"
