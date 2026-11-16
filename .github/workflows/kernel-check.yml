@@ -33,5 +33,6 @@ jobs:
           cargo build -p wicofe-kernel --features kernel-image --bin wicofe-kernel --target x86_64-unknown-none
           readelf -h target/x86_64-unknown-none/debug/wicofe-kernel
           readelf -l target/x86_64-unknown-none/debug/wicofe-kernel
+          python3 scripts/verify_kernel_elf.py target/x86_64-unknown-none/debug/wicofe-kernel
       - name: Check AArch64 target
         run: cargo check --workspace --target aarch64-unknown-none
