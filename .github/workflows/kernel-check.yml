@@ -17,7 +17,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Checkout pinned Wicofe dependency auditor
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: Waizusora/Wicofe-Tools
+          ref: 1ecc741e9bda1642b284633f12e79e3401329bea
+          path: Wicofe-Tools
       - name: Install system tools and capture package delta
+        id: install-tools
         run: |
           mkdir -p target/ci-audit
           dpkg-query -W -f='${binary:Package}\t${Version}\n' | sort > target/ci-audit/packages.before.tsv
@@ -70,7 +77,7 @@ jobs:
       - name: Build Limine ISO
         run: scripts/build_limine_iso.sh target/wicofe-x86_64.iso
       - name: Audit installed system package licenses
-        if: always()
+        if: always() && steps.install-tools.outcome == 'success'
         run: |
           python3 Wicofe-Tools/scripts/audit_dpkg_packages.py \
             --packages target/ci-audit/packages.changed.tsv \
