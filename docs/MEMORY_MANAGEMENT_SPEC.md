@@ -2,7 +2,7 @@
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
 - **Version:** 2.0
-- **Status:** Initial PMM bootstrap implemented; x86-64 BIOS/QEMU runtime validation passed
+- **Status:** Initial PMM bootstrap and inactive x86-64 page-table ownership lifecycle implemented; live VMM activation remains pending
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
 
@@ -332,13 +332,21 @@ translation, missing intermediate tables, invalid roots, 4 KiB user access,
 
 The backend now includes an HHDM-backed page-table memory adapter and a
 bounded PMM-backed frame pool. The pool zeroes allocated table frames, tracks
-their ownership, and can transactionally construct missing intermediate
-tables for an inactive, unpublished root. A matching unmap operation can
-reclaim empty intermediate tables, but only when those frames are owned by
-the same pool; it never frees the root or the mapped data frame. Reclamation
-proceeds from the lowest level upward and detaches each parent entry before
-returning its child frame to PMM. If a table is not owned or is not empty, it
-is retained.
+their ownership, and creates zeroed address-space roots. It can
+transactionally construct missing intermediate tables for an inactive,
+unpublished root. A matching unmap operation can reclaim empty intermediate
+tables, but only when those frames are owned by the same pool; it never frees
+the root or the mapped data frame. Reclamation proceeds from the lowest level
+upward and detaches each parent entry before returning its child frame to PMM.
+
+The pool also provides an inactive address-space destruction operation. It
+walks the owned four-level page-table tree, skips huge-page leaves, detaches
+owned child tables before releasing them, and finally releases the owned root.
+Non-owned child tables are treated as borrowed/shared and are not dereferenced
+or released. Mapped data frames are never freed by page-table teardown. The
+caller must ensure that a shared table branch does not contain pool-owned
+descendants that are expected to be reclaimed through this root; cross-address
+space ownership and shared-subtree reference counting are not implemented.
 
 These operations are still restricted to private, inactive address spaces.
 The caller must guarantee that no CPU can walk the hierarchy and that no stale
@@ -352,9 +360,10 @@ required identity, kernel, HHDM, and device mappings have been built and
 validated. No runtime page-table mutation is enabled by the boot path.
 
 Synthetic tests cover PMM frame ownership, zeroing, hierarchy construction
-and rollback, and bottom-up reclamation of an empty 4 KiB hierarchy. This
+and rollback, bottom-up reclamation of an empty 4 KiB hierarchy, and teardown
+of an owned address-space tree while leaving borrowed tables untouched. This
 does not demonstrate a live CR3 update, hardware-enforced user/kernel
-isolation, TLB invalidation, or a page-fault diagnostic path.
+isolation, TLB invalidation, SMP shootdown, or a page-fault diagnostic path.
 
 Responsibilities include:
 
