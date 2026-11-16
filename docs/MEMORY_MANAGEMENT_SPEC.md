@@ -1,7 +1,7 @@
 # WICOFE Memory Management Specification
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
-- **Version:** 1.8
+- **Version:** 1.9
 - **Status:** Initial PMM bootstrap implemented; x86-64 BIOS/QEMU runtime validation passed
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
@@ -311,6 +311,23 @@ hardware page tables, map/unmap memory, switch CR3/TTBR, invalidate TLBs, or
 provide address-space ownership. Those operations must be added behind
 architecture-specific backends with explicit PMM integration and TLB
 synchronization before the VMM can be activated by the boot path.
+
+### 5.2 x86-64 four-level paging primitives
+
+The initial x86-64 backend in kernel/src/arch/x86_64/paging.rs now provides a
+checked encoder for 4 KiB, 2 MiB, and 1 GiB leaf entries and extracts the
+PML4/PDPT/PD/PT indices for 48-bit canonical virtual addresses. The encoder
+validates the configured physical-address width (32–52 bits), physical
+alignment, physical-range bounds, writable/user/cache/global flags, huge-page
+selection, and NX availability. Non-executable mappings require NX support
+and encode the NX bit; executable mappings leave NX clear.
+
+These are descriptor primitives only. The backend does not allocate or
+initialize page-table pages, walk existing tables, install a new CR3, modify
+Limine's active mappings, or issue TLB invalidations. The kernel must preserve
+the inherited Limine page tables until a complete replacement hierarchy and
+all required identity, kernel, HHDM, and device mappings have been built and
+validated. No runtime page-table mutation is enabled by this milestone.
 
 Responsibilities include:
 

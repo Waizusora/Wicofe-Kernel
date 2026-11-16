@@ -5,6 +5,8 @@
 //! transfers to the common Rust bootstrap. It does not replace the bootloader
 //! page tables or install descriptor tables yet.
 
+pub mod paging;
+
 /// Architecture identifier used by early diagnostics.
 pub const ARCH_NAME: &str = "x86_64";
 
