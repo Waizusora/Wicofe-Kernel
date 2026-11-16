@@ -1472,7 +1472,10 @@ mod tests {
         .unwrap();
 
         // Simulate a recursive PML4 entry pointing back to the owned root.
-        assert!(pool.memory().write_entry(root, 510, root.get() | PRESENT | WRITABLE));
+        assert!(
+            pool.memory()
+                .write_entry(root, 510, root.get() | PRESENT | WRITABLE)
+        );
         assert_eq!(
             unsafe { pool.destroy_address_space(root, 48) },
             Err(PageTableHierarchyError::AliasedOwnedTable)
