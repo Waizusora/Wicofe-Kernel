@@ -333,20 +333,12 @@ impl AddressSpace {
 
         match (self.kind, upper_half, user_mapping) {
             (AddressSpaceKind::Kernel, true, false) => Ok(()),
-            (AddressSpaceKind::Kernel, true, true) => {
-                Err(VmmError::UserMappingInKernelHalf)
-            }
-            (AddressSpaceKind::Kernel, false, _) => {
-                Err(VmmError::MappingOutsideAddressSpace)
-            }
+            (AddressSpaceKind::Kernel, true, true) => Err(VmmError::UserMappingInKernelHalf),
+            (AddressSpaceKind::Kernel, false, _) => Err(VmmError::MappingOutsideAddressSpace),
             (AddressSpaceKind::User, false, true) => Ok(()),
-            (AddressSpaceKind::User, false, false) => {
-                Err(VmmError::KernelMappingInUserHalf)
-            }
+            (AddressSpaceKind::User, false, false) => Err(VmmError::KernelMappingInUserHalf),
             (AddressSpaceKind::User, true, false) => Ok(()),
-            (AddressSpaceKind::User, true, true) => {
-                Err(VmmError::UserMappingInKernelHalf)
-            }
+            (AddressSpaceKind::User, true, true) => Err(VmmError::UserMappingInKernelHalf),
         }
     }
 }
