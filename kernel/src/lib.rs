@@ -2,9 +2,9 @@
 
 //! Initial foundation for the WICOFE monolithic kernel.
 //!
-//! The crate is not yet a bootable kernel image. Protocol-specific entry
-//! assembly, linker scripts, allocator implementations, and panic handling
-//! are introduced in later boot-foundation milestones.
+//! The crate contains the initial freestanding kernel foundation. The x86-64
+//! Limine BIOS image is linked and QEMU-boot-tested through PMM allocation/free;
+//! AArch64 runtime boot, VMM, exceptions, SMP, and the kernel heap remain pending.
 
 #[cfg(test)]
 extern crate std;

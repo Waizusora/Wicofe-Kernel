@@ -1,8 +1,8 @@
 # WICOFE Memory Management Specification
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
-- **Version:** 1.3
-- **Status:** Design baseline (implementation parameters remain open)
+- **Version:** 1.7
+- **Status:** Initial PMM bootstrap implemented; x86-64 BIOS/QEMU runtime validation passed
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
 
@@ -193,12 +193,12 @@ size storage using the pre-metadata candidate frame count; the PMM initializes
 and uses only the number of frames remaining after its backing extent has
 been removed. No bootloader-reclaimable range is added to the allocator.
 
-This is a tested HHDM-backed initialization API, not yet invocation from the
-kernel entry path. The current bootstrap still validates boot information and
-fail-stops; it does not yet construct the complete reservation/early-memory
-pipeline or activate PMM during a real Limine boot. HHDM mapping coverage,
-architecture page-table state, and exclusive metadata ownership remain
-preconditions that must be established by the eventual boot integration.
+The HHDM-backed constructor is invoked by the Limine kernel entry path. Its
+caller relies on Limine's active HHDM and the validated usable-memory plan;
+the unsafe mapping-coverage and exclusive-ownership preconditions remain
+explicit. The BIOS/QEMU runtime test confirms that this path reaches the
+PMM-ready milestone. The HHDM constructor still cannot independently prove
+that an arbitrary physical interval is mapped.
 
 ### 4.1.6 Limine bootstrap PMM activation
 
@@ -217,16 +217,19 @@ are bounded by the boot memory-map and module response capacities. The PMM is
 kept alive after initialization, but general allocation is not enabled yet:
 VMM, exception handling, diagnostics, and SMP synchronization are not ready.
 
-A failure at any step still enters the existing silent fail-stop path. The
-current Limine consumer does not yet decode framebuffer details, so the
-framebuffer remains excluded by its non-usable memory-map classification but
-is not separately represented in the explicit reservation ledger.
+Bootstrap failures emit a COM1 diagnostic marker and then enter a fail-stop
+loop. The current Limine consumer does not yet decode framebuffer details, so
+the framebuffer remains excluded by its non-usable memory-map classification
+but is not separately represented in the explicit reservation ledger.
 
-CI target checks compile the `target_os = "none"` entry path; they do not
-execute it. This milestone has not yet been validated by producing a final
-linked Limine ELF or booting it in QEMU or on hardware. Runtime verification
-must confirm HHDM coverage and the selected metadata physical extent before
-PMM activation is considered boot-tested.
+CI now builds and validates the final x86-64 ELF, packages a BIOS Limine ISO,
+and boots it under QEMU. The serial log must contain the bootstrap, validated
+boot-information, PMM-ready, and PMM allocation/free smoke-test markers. The
+smoke test allocates one frame, checks its owner metadata, releases it, and
+verifies that the free-frame count returns to its initial value. This proves
+the initial allocator path executes in the tested QEMU configuration; it does
+not establish SMP safety, VMM operation, hardware compatibility, or AArch64
+runtime boot. AArch64 remains compile-checked only.
 
 ### 4.2 Early allocator
 

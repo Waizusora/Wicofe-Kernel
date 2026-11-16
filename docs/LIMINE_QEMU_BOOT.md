@@ -38,10 +38,10 @@ timeout 20s qemu-system-x86_64 \
 cat target/qemu-serial.log
 ```
 
-A successful early boot prints `WICOFE: BOOTSTRAP_ENTERED`, `WICOFE: BOOTINFO_VALID`, and `WICOFE: PMM_READY` to COM1. CI requires the PMM marker and rejects bootstrap failure markers.
+A successful early boot prints `WICOFE: BOOTSTRAP_ENTERED`, `WICOFE: BOOTINFO_VALID`, `WICOFE: PMM_READY`, and `WICOFE: PMM_ALLOC_FREE_OK` to COM1. CI requires all four milestones and rejects bootstrap or allocator smoke-test failure markers.
 
 ## Runtime test scope
 
-The QEMU test boots the Limine ISO using the emulated x86-64 BIOS path. It confirms that Limine loads the kernel, the kernel consumes and validates the boot handoff, and the initial HHDM-backed PMM is initialized. The kernel intentionally remains in a terminal loop after PMM initialization.
+The QEMU test boots the Limine ISO using the emulated x86-64 BIOS path. It confirms that Limine loads the kernel, the kernel consumes and validates the boot handoff, the initial HHDM-backed PMM is initialized, and one physical frame can be allocated, checked for its owner tag, and freed with the free-frame count restored. The kernel intentionally remains in a terminal loop after this smoke test.
 
 This is not yet a full OS boot. There is no VMM, interrupt/exception subsystem, SMP startup, general heap allocator, userspace, or filesystem mount. UEFI boot support is not yet included in this first boot image milestone.

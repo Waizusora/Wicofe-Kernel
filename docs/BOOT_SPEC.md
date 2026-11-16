@@ -1,15 +1,15 @@
 # WICOFE Boot Foundation Specification
 
 - **Document:** BOOT_SPEC.md
-- **Version:** 1.7
-- **Status:** Initial boot architecture decision and adapter implementation notes
+- **Version:** 1.8
+- **Status:** x86-64 BIOS Limine boot and PMM runtime smoke test validated in QEMU
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
 - **Kernel language:** Rust `no_std`
 
 ## 1. Purpose
 
-This document defines the initial firmware-to-kernel boot contract and the boundary between the bootloader protocol and architecture-neutral WICOFE initialization. It is a specification and scaffold plan, not evidence of a bootable image.
+This document defines the firmware-to-kernel boot contract and the boundary between the bootloader protocol and architecture-neutral WICOFE initialization. The x86-64 BIOS/Limine path has a linked ELF image and passes a QEMU runtime smoke test through PMM frame allocation and release. AArch64 remains compile-checked; its final image and runtime path are not yet validated.
 
 ## 2. Bootloader and protocol decision
 
@@ -68,7 +68,7 @@ kernel/src/
     └── mod.rs
 ```
 
-Architecture entry trampolines and linker layout scaffolds now exist. Final ELF linking and runtime boot-information consumption remain separate milestones. Common initialization must not contain inline assumptions about x86-64 registers, AArch64 exception levels, or page-table encodings.
+Architecture entry trampolines and linker layouts are integrated into the x86-64 final ELF build. The x86-64 BIOS/Limine image is exercised in QEMU, including normalized boot-information consumption and PMM activation. AArch64 entry code is compile-checked but is not yet boot-tested. Common initialization must not contain inline assumptions about x86-64 registers, AArch64 exception levels, or page-table encodings.
 
 ## 5. Normalized boot information
 
@@ -172,13 +172,14 @@ ownership boundary for the kernel image and boot modules:
   overlap comparisons are only performed after the corresponding ranges have
   passed overflow validation.
 
-This is validation, not yet a PMM reservation allocator: the original
-memory-map entries are not split or rewritten, and no memory is marked free.
-The future PMM bootstrap must consume these validated kernel/module ranges as
-reserved exclusions, along with boot information, framebuffer/MMIO, firmware,
-and other non-usable ranges. Bootloader-reclaimable memory remains unavailable
-until all protocol response structures and metadata have been copied or
-consumed and no references remain.
+This validation feeds the PMM reservation pipeline: the original memory-map
+entries are not split or rewritten, but the early usable-memory planner
+subtracts the explicit kernel/module/framebuffer ledger before PMM metadata is
+placed. Boot information and other bootloader-owned storage remain unavailable
+under their existing memory-map ownership class. Bootloader-reclaimable memory
+is not released by the current bootstrap and remains unavailable until all
+protocol response structures and metadata have been copied or consumed and no
+references remain.
 
 
 ### 6.2 Explicit early reservation ledger
@@ -252,14 +253,13 @@ The entry layer must read the linker symbol addresses and call
 `__kernel_start`. The constructor derives the extent and rejects empty or
 reversed virtual bounds and physical-range overflow.
 
-This milestone adds linker layouts and the tested range-derivation contract.
-The crate is still an `rlib`: there is no `_start` implementation, no
-architecture entry assembly, and no target-specific final link invocation.
-Therefore these scripts are not yet used by the Cargo build, and the symbols
-are not yet read at runtime. The x86-64 and AArch64 scripts use the Limine-required higher-half minimum
-virtual address of 0xffffffff80000000. The chosen ELF program-header layout
-must still be validated with actual Limine-linked images before being treated
-as a stable boot ABI.
+The x86-64 linker script is used by the freestanding Cargo binary and its ELF
+program headers are checked in CI. Limine loads that image at the expected
+higher-half virtual address; the runtime bootstrap reads the linker bounds to
+construct the kernel physical reservation. The AArch64 linker script remains
+scaffolded and its final link/runtime integration is pending. The x86-64 ELF
+layout is validated for the current pinned Limine/QEMU boot configuration,
+but should not yet be treated as a stable cross-version boot ABI.
 
 
 ### 9.2 Limine request registration
@@ -291,17 +291,22 @@ list; framebuffer decoding remains deferred.
 
 The entry obtains `__kernel_start` and `__kernel_end` from the linker and uses
 fixed-capacity early buffers (256 memory-map entries and 64 modules). It
-validates the response data and retains the resulting borrowed `BootInfo`
-view while fail-stopping. The static buffers are single-entry bootstrap
-storage; they are not a general allocator. A malformed or unsupported handoff
-also fail-stops. The entry still has no serial/firmware diagnostic output and
-does not install an IDT/VBAR, replace page tables, copy module metadata,
-reserve ranges in a PMM, or reclaim bootloader memory. The entry trampolines
-are compiled only for `target_os = "none"`.
+validates the response data, constructs kernel/module reservations, plans the
+usable physical ranges and PMM metadata placement, then initializes the PMM
+through the Limine HHDM. COM1 diagnostics report bootstrap entry, validated
+boot information, PMM readiness, and PMM allocation/free smoke-test status.
+The static buffers are single-entry bootstrap storage, not a general
+allocator. A malformed or unsupported handoff emits a diagnostic and
+fail-stops. The entry does not yet install an IDT/VBAR, replace the inherited
+page tables, copy module metadata, reclaim bootloader memory, or enable
+concurrent PMM use. The AArch64 trampoline is compile-checked but not runtime
+validated.
 
-The crate remains an `rlib`; there is no final kernel ELF target, panic
-handler, final Cargo linker integration, or QEMU boot test yet. Therefore
-these entry symbols and linker scripts are not yet proven in a bootable image.
+The x86-64 freestanding binary is linked as an ELF executable, checked for
+RX/R/RW load segments, packaged into a BIOS Limine ISO, and booted in QEMU by
+CI. The test requires the PMM allocation/free smoke-test marker. This is an
+initial boot milestone, not a complete OS boot: VMM, exception handling, SMP,
+heap, userspace, and filesystem initialization remain pending.
 
 
 ### 9.4 End-to-end normalized boot information consumption
@@ -321,13 +326,14 @@ The returned `BootInfo` borrows those slices, so their storage must remain
 alive and unmodified while the value is in use.
 
 This stage deliberately does not decode framebuffer details, copy module
-path/string metadata, install mappings, reserve physical ranges, reclaim
-bootloader memory, or initialize PMM/VMM. The unsafe caller must prove that
-response structures and nested pointers are mapped, readable, aligned, and
-live. Pointer nullness/alignment checks alone cannot establish memory safety.
-The bootstrap entry now calls this function using linker bounds and static
-fixed-capacity storage. This is source-level integration only: there is still
-no final ELF target or QEMU boot test to prove the complete handoff at runtime.
+path/string metadata, install new mappings, or reclaim bootloader memory. The
+bootstrap entry calls this function using linker bounds and static
+fixed-capacity storage, then constructs reservations and activates PMM. The
+unsafe caller must prove that response structures and nested pointers are
+mapped, readable, aligned, and live; pointer nullness/alignment checks alone
+cannot establish memory safety. The complete x86-64 path is linked and
+validated by the BIOS/Limine QEMU test. VMM and AArch64 runtime validation
+remain outstanding.
 
 ## 10. Boot modules
 

@@ -189,6 +189,26 @@ unsafe fn initialize_bootstrap_pmm(boot_info: &BootInfo<'_>) -> Result<Pmm<'stat
     }
 }
 
+/// Exercise one real PMM allocation/free cycle before enabling later stages.
+/// The frame is tracked only in PMM metadata; this does not write to the frame.
+fn verify_pmm_alloc_free(pmm: &mut Pmm<'_>) -> bool {
+    const OWNER_TAG: u64 = 0x5749_434f_4645;
+    let free_before = pmm.free_frames();
+    let frame = match pmm.allocate_frame(OWNER_TAG) {
+        Ok(frame) => frame,
+        Err(_) => return false,
+    };
+    let metadata_valid = match pmm.frame_metadata(frame) {
+        Ok(metadata) => metadata.owner_tag == OWNER_TAG,
+        Err(_) => false,
+    };
+    let released = pmm.free_frame(frame).is_ok();
+    metadata_valid
+        && released
+        && pmm.free_frames() == free_before
+        && pmm.allocated_frames() == 0
+}
+
 /// Rust entry called by the architecture-specific _start trampoline.
 ///
 /// This function must never return to Limine's invalid return address.
@@ -241,11 +261,16 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
             match unsafe { initialize_bootstrap_pmm(&validated_boot_info) } {
                 Ok(mut pmm) => {
                     early_serial_write_str("WICOFE: PMM_READY\n");
-                    // Keep allocator metadata alive. General allocation remains
-                    // disabled until VMM and diagnostics are initialized.
-                    loop {
-                        core::hint::black_box(&mut pmm);
-                        core::hint::spin_loop();
+                    if !verify_pmm_alloc_free(&mut pmm) {
+                        early_serial_write_str("WICOFE: PMM_ALLOC_FREE_FAILED\n");
+                    } else {
+                        early_serial_write_str("WICOFE: PMM_ALLOC_FREE_OK\n");
+                        // Keep allocator metadata alive. General allocation remains
+                        // disabled until VMM and diagnostics are initialized.
+                        loop {
+                            core::hint::black_box(&mut pmm);
+                            core::hint::spin_loop();
+                        }
                     }
                 }
                 Err(_) => early_serial_write_str("WICOFE: PMM_INIT_FAILED\n"),
