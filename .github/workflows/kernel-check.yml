@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: Waizusora/Wicofe-Tools
-          ref: 12459e5365f696cda0ab47b5a107f3d8cb371679
+          ref: 2a18f2b4d298ce4d53d29c1f6556f957ab93203b
           path: Wicofe-Tools
       - name: Install system tools and capture package delta
         id: install-tools
