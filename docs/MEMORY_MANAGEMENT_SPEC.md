@@ -1,7 +1,7 @@
 # WICOFE Memory Management Specification
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
-- **Version:** 1.2
+- **Version:** 1.3
 - **Status:** Design baseline (implementation parameters remain open)
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
@@ -115,6 +115,32 @@ transfer ownership. The caller must reserve the physical backing of PMM
 metadata before any corresponding frames can be exposed to the allocator.
 Reclaimable memory remains excluded until its metadata and all references
 have been safely consumed and its lifetime has ended.
+
+### 4.1.3 PMM metadata capacity and placement
+
+The metadata-placement planner consumes the sorted, page-aligned output of
+the early usable-memory planner. It calculates the tracked frame count across
+all candidate ranges, sizes a one-bit-per-frame bitmap, and sizes a
+caller-selected fixed-width per-frame metadata array. All arithmetic is
+checked and the combined byte count is rounded up to the selected page size.
+
+The initial placement policy is deterministic first-fit: reserve the required
+contiguous metadata extent at the beginning of the first candidate range large
+enough to contain it. The planner returns the physical base, page-rounded
+reserved length, tracked frame count, bitmap byte count, and per-frame
+metadata byte count. It also returns a new candidate-range list with the
+metadata backing extent removed. This prevents the PMM from later allocating
+the frames that contain its own metadata.
+
+Input ranges must be sorted, page-aligned, non-empty, and non-overlapping;
+adjacent ranges remain distinct. Metadata backing must fit wholly inside one
+candidate range; this initial planner does not coalesce adjacent descriptors
+to satisfy a contiguous metadata request. Caller-owned output capacity is
+checked before writes. The planner does not initialize the bitmap or frame
+records, map the backing range, establish synchronization, or transfer memory
+ownership. The caller must complete those operations before PMM activation.
+The per-frame record size and eventual record encoding remain implementation
+parameters rather than a stable ABI.
 
 ### 4.2 Early allocator
 
