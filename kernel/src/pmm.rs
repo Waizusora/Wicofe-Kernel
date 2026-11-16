@@ -11,7 +11,7 @@
 
 use core::num::NonZeroU64;
 
-use crate::boot::EarlyMemoryRange;
+use crate::boot::{EarlyMemoryRange, PmmMetadataLayout};
 use crate::memory::PhysAddr;
 
 /// Per-frame diagnostic metadata. The bitmap remains the source of truth
@@ -35,6 +35,9 @@ pub enum PmmError {
     ArithmeticOverflow,
     InsufficientBitmap { required: usize, available: usize },
     InsufficientFrameMetadata { required: usize, available: usize },
+    InvalidMetadataLayout,
+    InvalidHhdmAddress,
+    MisalignedMetadataAddress,
     OutOfMemory,
     UnalignedAddress,
     UntrackedFrame,
@@ -129,6 +132,81 @@ impl<'a> Pmm<'a> {
             next_hint: 0,
             free_frames: total_frames,
         })
+    }
+
+    /// Construct and initialize the PMM using its reserved metadata through
+    /// the Limine HHDM.
+    ///
+    /// # Safety
+    /// The caller must guarantee that the complete physical interval
+    /// `layout.physical_base..physical_base + layout.reserved_length` is
+    /// writable and continuously mapped at `HHDM + physical address`, that
+    /// the mapping remains valid for the returned allocator lifetime, and
+    /// that no other execution context accesses this storage. The interval
+    /// must be exclusively reserved for PMM metadata and must not overlap any
+    /// candidate range in `ranges`. The layout must have been produced for
+    /// this same metadata extent using `size_of::<FrameMetadata>()`.
+    ///
+    /// This function does not establish a mapping or prove HHDM coverage.
+    pub unsafe fn from_hhdm(
+        ranges: &'a [EarlyMemoryRange],
+        page_size: NonZeroU64,
+        hhdm_offset: u64,
+        layout: &PmmMetadataLayout,
+    ) -> Result<Self, PmmError> {
+        let metadata_size = core::mem::size_of::<FrameMetadata>();
+        if metadata_size != 16
+            || layout.frame_metadata_bytes % metadata_size as u64 != 0
+            || layout.frame_metadata_offset < layout.bitmap_bytes
+        {
+            return Err(PmmError::InvalidMetadataLayout);
+        }
+        let metadata_end = layout
+            .frame_metadata_offset
+            .checked_add(layout.frame_metadata_bytes)
+            .ok_or(PmmError::ArithmeticOverflow)?;
+        if metadata_end > layout.reserved_length {
+            return Err(PmmError::InvalidMetadataLayout);
+        }
+
+        let bitmap_len = usize::try_from(layout.bitmap_bytes)
+            .map_err(|_| PmmError::InvalidMetadataLayout)?;
+        let metadata_len = usize::try_from(layout.frame_metadata_bytes / metadata_size as u64)
+            .map_err(|_| PmmError::InvalidMetadataLayout)?;
+        if bitmap_len == 0 || metadata_len == 0 {
+            return Err(PmmError::InvalidMetadataLayout);
+        }
+
+        let bitmap_virtual = hhdm_offset
+            .checked_add(layout.physical_base)
+            .ok_or(PmmError::InvalidHhdmAddress)?;
+        let metadata_physical = layout
+            .physical_base
+            .checked_add(layout.frame_metadata_offset)
+            .ok_or(PmmError::ArithmeticOverflow)?;
+        let metadata_virtual = hhdm_offset
+            .checked_add(metadata_physical)
+            .ok_or(PmmError::InvalidHhdmAddress)?;
+        let bitmap_address =
+            usize::try_from(bitmap_virtual).map_err(|_| PmmError::InvalidHhdmAddress)?;
+        let metadata_address =
+            usize::try_from(metadata_virtual).map_err(|_| PmmError::InvalidHhdmAddress)?;
+        if metadata_address % core::mem::align_of::<FrameMetadata>() != 0 {
+            return Err(PmmError::MisalignedMetadataAddress);
+        }
+
+        // SAFETY: The caller guarantees HHDM mapping, writability, exclusivity,
+        // and lifetime for the full reserved metadata interval.
+        let bitmap =
+            unsafe { core::slice::from_raw_parts_mut(bitmap_address as *mut u8, bitmap_len) };
+        // SAFETY: Same backing-memory contract; offset is checked and aligned.
+        let metadata = unsafe {
+            core::slice::from_raw_parts_mut(
+                metadata_address as *mut FrameMetadata,
+                metadata_len,
+            )
+        };
+        Self::new(ranges, page_size, bitmap, metadata)
     }
 
     /// Allocate one physical frame and attach a caller-defined owner tag.
