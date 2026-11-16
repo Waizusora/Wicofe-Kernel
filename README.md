@@ -54,6 +54,10 @@ Start at [docs/INDEX.md](docs/INDEX.md). Canonical kernel documents include:
 
 The userspace syscall ABI is owned by [Wicofe-ABI](https://github.com/Waizusora/Wicofe-ABI). ONWFS disk layout is owned by [ONWFS](https://github.com/Waizusora/ONWFS). Cross-repository contracts are coordinated in [Wicofe-Specs](https://github.com/Waizusora/Wicofe-Specs).
 
+## Third-party licensing
+
+Original Wicofe-Kernel code uses MPL-2.0. Limine 12.9.6 is pinned by release version and SHA-256; its BSD-2-Clause and bundled third-party notices are staged into the ISO. See [third-party licensing evidence](docs/licensing.md).
+
 ## Build and test
 
 Build the x86-64 freestanding kernel image from the repository root:
