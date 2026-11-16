@@ -425,8 +425,14 @@ mod tests {
             physical_base: u64::MAX - 0x10,
             length: 0x20,
         }];
+        let memory_map = [MemoryRegion {
+            base: KERNEL.physical_base,
+            length: KERNEL.length,
+            kind: MemoryRegionKind::KernelAndModules,
+            attributes: 0,
+        }];
         let info = BootInfo {
-            memory_map: &[],
+            memory_map: &memory_map,
             kernel_image: KERNEL,
             modules: &modules,
             hhdm_offset: None,
