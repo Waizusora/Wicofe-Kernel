@@ -277,6 +277,7 @@ pub enum PageTablePoolError {
 pub enum PageTableHierarchyError {
     Paging(X86PagingError),
     Pool(PageTablePoolError),
+    AliasedOwnedTable,
 }
 
 /// Owns a bounded set of zero-initialized page-table frames from the PMM.
@@ -351,6 +352,15 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
             ));
         }
 
+        // Validate the complete owned subtree before changing any entry.
+        // Recursive mappings and multiply-referenced owned tables would make
+        // recursive reclamation loop or free a frame while another parent
+        // still points to it.
+        let mut visited = [None; CAPACITY];
+        visited[0] = Some(root);
+        let mut visited_count = 1;
+        self.validate_owned_tree(root, 4, mask, &mut visited, &mut visited_count)?;
+
         for index in 0..512 {
             let entry = read_table_entry(&self.memory, root, index)
                 .map_err(PageTableHierarchyError::Paging)?;
@@ -364,6 +374,48 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         // SAFETY: The caller guarantees the complete address space is inactive
         // and detached from all CPU walkers and TLBs.
         unsafe { self.release_table_frame(root) }.map_err(PageTableHierarchyError::Pool)
+    }
+
+    fn validate_owned_tree(
+        &self,
+        table: PhysAddr,
+        table_level: u8,
+        physical_mask: u64,
+        visited: &mut [Option<PhysAddr>; CAPACITY],
+        visited_count: &mut usize,
+    ) -> Result<(), PageTableHierarchyError> {
+        if table_level <= 1 {
+            return Ok(());
+        }
+
+        for index in 0..512 {
+            let entry = read_table_entry(&self.memory, table, index)
+                .map_err(PageTableHierarchyError::Paging)?;
+            if entry & PRESENT == 0 || entry & HUGE_PAGE != 0 {
+                continue;
+            }
+
+            let child = PhysAddr::new(entry & physical_mask);
+            if !self.owned.iter().any(|slot| *slot == Some(child)) {
+                continue;
+            }
+            if visited[..*visited_count].contains(&Some(child)) {
+                return Err(PageTableHierarchyError::AliasedOwnedTable);
+            }
+            if *visited_count == CAPACITY {
+                return Err(PageTableHierarchyError::AliasedOwnedTable);
+            }
+            visited[*visited_count] = Some(child);
+            *visited_count += 1;
+            self.validate_owned_tree(
+                child,
+                table_level - 1,
+                physical_mask,
+                visited,
+                visited_count,
+            )?;
+        }
+        Ok(())
     }
 
     fn destroy_owned_child(
@@ -1373,6 +1425,66 @@ mod tests {
                 PageTablePoolError::FrameNotOwned
             ))
         );
+    }
+
+    #[test]
+    fn address_space_destroy_rejects_recursive_owned_table_before_mutation() {
+        use crate::boot::EarlyMemoryRange;
+        use crate::pmm::FrameMetadata;
+        use core::num::NonZeroU64;
+
+        #[repr(align(4096))]
+        struct Backing([u8; 4 * 4096]);
+
+        let mut backing = Backing([0; 4 * 4096]);
+        let physical_base = 0x1000u64;
+        let hhdm_offset = (backing.0.as_mut_ptr() as u64) - physical_base;
+        let ranges = [EarlyMemoryRange {
+            base: physical_base,
+            length: 4 * 4096,
+        }];
+        let mut bitmap = [0u8; 1];
+        let mut metadata = [FrameMetadata::default(); 4];
+        let mut pmm = Pmm::new(
+            &ranges,
+            NonZeroU64::new(4096).unwrap(),
+            &mut bitmap,
+            &mut metadata,
+        )
+        .unwrap();
+
+        // SAFETY: The aligned backing buffer is a writable synthetic HHDM.
+        let mut pool = unsafe { PageTableFramePool::<4>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let root = pool.create_address_space().unwrap();
+        let virtual_address = VirtAddr::new(0xffff_8000_1234_5000);
+        // SAFETY: The root is private and inactive.
+        unsafe {
+            pool.map_leaf_with_tables(
+                root,
+                virtual_address,
+                PhysAddr::new(0x9000),
+                PageSize::Size4KiB,
+                PageFlags::KERNEL_WRITABLE,
+                48,
+                true,
+            )
+        }
+        .unwrap();
+
+        // Simulate a recursive PML4 entry pointing back to the owned root.
+        assert!(pool.memory().write_entry(root, 510, root.get() | PRESENT | WRITABLE));
+        assert_eq!(
+            unsafe { pool.destroy_address_space(root, 48) },
+            Err(PageTableHierarchyError::AliasedOwnedTable)
+        );
+        assert_eq!(pool.owned_frame_count(), 4);
+
+        // Remove the malformed recursive entry so the test can clean up.
+        assert!(pool.memory().write_entry(root, 510, 0));
+        // SAFETY: The private root remains inactive and no TLB can reference it.
+        unsafe { pool.destroy_address_space(root, 48) }.unwrap();
+        assert_eq!(pool.owned_frame_count(), 0);
+        assert_eq!(pool.pmm.free_frames(), 4);
     }
 
     #[test]
