@@ -79,7 +79,14 @@ cp "$ROOT_DIR/limine/limine.conf" "$ISO_ROOT/boot/limine/limine.conf"
 cp "$LIMINE_DIR/limine-bios.sys" "$LIMINE_DIR/limine-bios-cd.bin" "$ISO_ROOT/boot/limine/"
 NOTICE_DEST="$ISO_ROOT/boot/limine/licenses/limine-12.9.6"
 mkdir -p "$NOTICE_DEST"
+if [[ -s "$LIMINE_DIR/3RDPARTY.md" ]] && ! cmp -s "$LIMINE_DIR/3RDPARTY.md" "$LIMINE_NOTICE_DIR/3RDPARTY.md"; then
+    echo "Limine archive third-party notices differ from the pinned source notice" >&2
+    exit 1
+fi
 cp "$LIMINE_NOTICE_DIR/COPYING" "$LIMINE_NOTICE_DIR/3RDPARTY.md" "$NOTICE_DEST/"
+if [[ -s "$LIMINE_DIR/LICENSE" ]]; then
+    cp "$LIMINE_DIR/LICENSE" "$NOTICE_DEST/LICENSE"
+fi
 xorriso -as mkisofs -R -r -J \
     -b boot/limine/limine-bios-cd.bin \
     -no-emul-boot -boot-load-size 4 -boot-info-table \
