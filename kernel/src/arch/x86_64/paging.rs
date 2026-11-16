@@ -278,26 +278,16 @@ fn validate_parent_permissions<M: PageTableMemory>(
     }
     check_parent_permissions(pml4e, flags)?;
 
-    if matches!(page_size, PageSize::Size1GiB) {
+    if matches!(page_size, PageSize::Size1GiB | PageSize::Size2MiB) {
         return Ok(());
     }
 
     let pdpt = PhysAddr::new(pml4e & mask);
     let pdpte = read_table_entry(memory, pdpt, indices.pdpt)?;
-    if pdpte & PRESENT == 0 {
-        return Err(X86PagingError::InvalidHierarchy);
-    }
-    if matches!(page_size, PageSize::Size2MiB) && pdpte & HUGE_PAGE != 0 {
-        return Err(X86PagingError::InvalidHierarchy);
-    }
-    if matches!(page_size, PageSize::Size4KiB) && pdpte & HUGE_PAGE != 0 {
+    if pdpte & PRESENT == 0 || pdpte & HUGE_PAGE != 0 {
         return Err(X86PagingError::InvalidHierarchy);
     }
     check_parent_permissions(pdpte, flags)?;
-
-    if matches!(page_size, PageSize::Size2MiB) {
-        return Ok(());
-    }
 
     let pd = PhysAddr::new(pdpte & mask);
     let pde = read_table_entry(memory, pd, indices.pd)?;
