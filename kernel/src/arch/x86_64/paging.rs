@@ -510,12 +510,16 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         let mask = physical_address_mask(physical_address_bits)
             .map_err(PageTableHierarchyError::Paging)?;
         if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
-            return Err(PageTableHierarchyError::Paging(X86PagingError::InvalidRootTable));
+            return Err(PageTableHierarchyError::Paging(
+                X86PagingError::InvalidRootTable,
+            ));
         }
         let root_entry = read_table_entry(&self.memory, root, indices.pml4)
             .map_err(PageTableHierarchyError::Paging)?;
         if root_entry & PRESENT == 0 || root_entry & HUGE_PAGE != 0 {
-            return Err(PageTableHierarchyError::Paging(X86PagingError::MissingIntermediateTable));
+            return Err(PageTableHierarchyError::Paging(
+                X86PagingError::MissingIntermediateTable,
+            ));
         }
         let pdpt = PhysAddr::new(root_entry & mask);
         let mut reclaim: [Option<(PhysAddr, u16, PhysAddr)>; 3] = [None; 3];
@@ -528,7 +532,9 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
             let pdpt_entry = read_table_entry(&self.memory, pdpt, indices.pdpt)
                 .map_err(PageTableHierarchyError::Paging)?;
             if pdpt_entry & PRESENT == 0 || pdpt_entry & HUGE_PAGE != 0 {
-                return Err(PageTableHierarchyError::Paging(X86PagingError::MissingIntermediateTable));
+                return Err(PageTableHierarchyError::Paging(
+                X86PagingError::MissingIntermediateTable,
+            ));
             }
             let pd = PhysAddr::new(pdpt_entry & mask);
             if matches!(page_size, PageSize::Size2MiB) {
@@ -538,7 +544,9 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
                 let pd_entry = read_table_entry(&self.memory, pd, indices.pd)
                     .map_err(PageTableHierarchyError::Paging)?;
                 if pd_entry & PRESENT == 0 || pd_entry & HUGE_PAGE != 0 {
-                    return Err(PageTableHierarchyError::Paging(X86PagingError::MissingIntermediateTable));
+                    return Err(PageTableHierarchyError::Paging(
+                X86PagingError::MissingIntermediateTable,
+            ));
                 }
                 let pt = PhysAddr::new(pd_entry & mask);
                 reclaim[count] = Some((pd, indices.pd, pt));
@@ -576,14 +584,17 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
             return Ok(());
         }
         for entry_index in 0..512 {
-            let entry = self.memory.read_entry(child, entry_index)
-                .ok_or(PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed))?;
+            let entry = self.memory.read_entry(child, entry_index).ok_or(
+                PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed),
+            )?;
             if entry & PRESENT != 0 {
                 return Ok(());
             }
         }
         if !self.memory.write_entry(parent, index, 0) {
-            return Err(PageTableHierarchyError::Paging(X86PagingError::MemoryAccessFailed));
+            return Err(PageTableHierarchyError::Paging(
+                X86PagingError::MemoryAccessFailed,
+            ));
         }
         // SAFETY: The caller of unmap_leaf_with_reclaim guarantees the
         // hierarchy is inactive; this child is now detached and empty.
@@ -1195,15 +1206,8 @@ mod tests {
         assert_eq!(pool.owned_frame_count(), 4);
 
         // SAFETY: No CPU can walk this private root and no TLB can reference it.
-        unsafe {
-            pool.unmap_leaf_with_reclaim(
-                root,
-                virtual_address,
-                PageSize::Size4KiB,
-                48,
-            )
-        }
-        .unwrap();
+        unsafe { pool.unmap_leaf_with_reclaim(root, virtual_address, PageSize::Size4KiB, 48) }
+            .unwrap();
 
         assert_eq!(pool.owned_frame_count(), 1);
         assert_eq!(pool.memory().read_entry(root, 256), Some(0));
