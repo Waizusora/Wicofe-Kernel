@@ -728,7 +728,10 @@ mod tests {
         // hierarchy, so it is detached and has no possible TLB references.
         unsafe { pool.release_table_frame(frame) }.unwrap();
         assert_eq!(pool.owned_frame_count(), 0);
-        assert_eq!(backing.0[..4096].iter().filter(|byte| **byte == 0).count(), 4096);
+        assert_eq!(
+            backing.0[..4096].iter().filter(|byte| **byte == 0).count(),
+            4096
+        );
     }
 
     #[test]
