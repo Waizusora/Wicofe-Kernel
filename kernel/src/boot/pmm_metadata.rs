@@ -213,12 +213,12 @@ mod tests {
     fn insufficient_output_capacity_is_transactional() {
         let ranges = [range(0x1000, 0x20_000)];
         let sentinel = range(7, 9);
-        let mut output = [sentinel; 1];
+        let mut output: [EarlyMemoryRange; 0] = [];
         assert_eq!(
             plan_pmm_metadata_placement(&ranges, PAGE, FRAME_META, &mut output),
             Err(PmmMetadataError::InsufficientOutputCapacity {
                 required: 1,
-                available: 1
+                available: 0
             })
         );
         assert_eq!(output, [sentinel]);
@@ -253,8 +253,9 @@ mod tests {
     fn reports_insufficient_contiguous_backing() {
         let ranges = [range(0x1000, 0x1000), range(0x4000, 0x1000)];
         let mut output = [range(0, 0); 2];
+        let large_metadata = NonZeroU64::new(0x3000).unwrap();
         assert_eq!(
-            plan_pmm_metadata_placement(&ranges, PAGE, FRAME_META, &mut output),
+            plan_pmm_metadata_placement(&ranges, PAGE, large_metadata, &mut output),
             Err(PmmMetadataError::InsufficientBackingMemory)
         );
     }
