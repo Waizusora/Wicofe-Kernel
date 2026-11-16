@@ -400,6 +400,18 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         physical_address_bits: u8,
         nx_enabled: bool,
     ) -> Result<(), PageTableHierarchyError> {
+        let mask = physical_address_mask(physical_address_bits)
+            .map_err(PageTableHierarchyError::Paging)?;
+        if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
+            return Err(PageTableHierarchyError::Paging(X86PagingError::InvalidRootTable));
+        }
+        let size = page_size.bytes().get();
+        if virtual_address.get() % size != 0 {
+            return Err(PageTableHierarchyError::Paging(X86PagingError::MisalignedVirtualAddress));
+        }
+        PageTableEntry::encode_leaf(
+            physical_base, page_size, flags, physical_address_bits, nx_enabled,
+        ).map_err(PageTableHierarchyError::Paging)?;
         let geometry = AddressGeometry::new(48)
             .map_err(|_| PageTableHierarchyError::Paging(X86PagingError::InvalidAddressGeometry))?;
         let indices = PageTableIndices::from_address(virtual_address, geometry)
