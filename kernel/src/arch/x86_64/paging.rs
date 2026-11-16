@@ -403,15 +403,24 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         let mask = physical_address_mask(physical_address_bits)
             .map_err(PageTableHierarchyError::Paging)?;
         if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
-            return Err(PageTableHierarchyError::Paging(X86PagingError::InvalidRootTable));
+            return Err(PageTableHierarchyError::Paging(
+                X86PagingError::InvalidRootTable,
+            ));
         }
         let size = page_size.bytes().get();
         if virtual_address.get() % size != 0 {
-            return Err(PageTableHierarchyError::Paging(X86PagingError::MisalignedVirtualAddress));
+            return Err(PageTableHierarchyError::Paging(
+                X86PagingError::MisalignedVirtualAddress,
+            ));
         }
         PageTableEntry::encode_leaf(
-            physical_base, page_size, flags, physical_address_bits, nx_enabled,
-        ).map_err(PageTableHierarchyError::Paging)?;
+            physical_base,
+            page_size,
+            flags,
+            physical_address_bits,
+            nx_enabled,
+        )
+        .map_err(PageTableHierarchyError::Paging)?;
         let geometry = AddressGeometry::new(48)
             .map_err(|_| PageTableHierarchyError::Paging(X86PagingError::InvalidAddressGeometry))?;
         let indices = PageTableIndices::from_address(virtual_address, geometry)
@@ -421,18 +430,30 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
 
         let result = (|| {
             let pdpt = self.ensure_child_table(
-                root, indices.pml4, flags, physical_address_bits,
-                &mut created, &mut created_count,
+                root,
+                indices.pml4,
+                flags,
+                physical_address_bits,
+                &mut created,
+                &mut created_count,
             )?;
             if !matches!(page_size, PageSize::Size1GiB) {
                 let pd = self.ensure_child_table(
-                    pdpt, indices.pdpt, flags, physical_address_bits,
-                    &mut created, &mut created_count,
+                    pdpt,
+                    indices.pdpt,
+                    flags,
+                    physical_address_bits,
+                    &mut created,
+                    &mut created_count,
                 )?;
                 if matches!(page_size, PageSize::Size4KiB) {
                     self.ensure_child_table(
-                        pd, indices.pd, flags, physical_address_bits,
-                        &mut created, &mut created_count,
+                        pd,
+                        indices.pd,
+                        flags,
+                        physical_address_bits,
+                        &mut created,
+                        &mut created_count,
                     )?;
                 }
             }
