@@ -202,8 +202,9 @@ mod tests {
     fn preserves_ranges_before_selected_backing() {
         let ranges = [range(0x1000, 0x1000), range(0x4000, 0x20_000)];
         let mut output = [range(0, 0); 2];
+        let large_metadata = NonZeroU64::new(128).unwrap();
         let (layout, count) =
-            plan_pmm_metadata_placement(&ranges, PAGE, FRAME_META, &mut output).unwrap();
+            plan_pmm_metadata_placement(&ranges, PAGE, large_metadata, &mut output).unwrap();
         assert_eq!(layout.physical_base, 0x4000);
         assert_eq!(count, 1);
         assert_eq!(output[0], range(0x1000, 0x1000));
