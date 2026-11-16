@@ -306,7 +306,9 @@ virtual-address size. Read access is implicit in the initial architecture
 backends. Cache attributes are represented as intent and must be translated
 or rejected by the architecture backend according to the target memory type.
 
-This common layer validates mapping requests only. It does not allocate page-table frames, modify hardware page tables, switch CR3/TTBR, invalidate TLBs, or provide address-space ownership. Architecture-specific operations remain separate and must preserve the common layer's W^X and range invariants.
+The common layer also defines a non-owning `AddressSpace` descriptor containing a physical root address, address-space kind, and address geometry. Construction validates root-page alignment but does not prove that the root is mapped, allocated, or owned; the architecture backend and frame-pool owner retain those responsibilities. Dropping the descriptor never frees the root.
+
+The descriptor validates privilege-domain placement before a backend applies a mapping. Kernel roots accept supervisor mappings only in the upper canonical half. User roots accept user mappings in the lower half and supervisor-only mappings in the upper half, leaving room for future shared kernel mappings; they reject supervisor mappings in the lower half and user mappings in the upper half. This is policy validation only: shared page-table branch ownership, mapping mutation, CR3/TTBR switching, TLB invalidation, and SMP shootdown remain unimplemented. Architecture-specific operations must preserve the common layer's W^X and range invariants.
 
 ### 5.2 x86-64 four-level paging primitives
 
