@@ -25,5 +25,6 @@ _start:
     hlt
     jmp 1b
     .size _start, . - _start
-"#
+"#,
+    options(att_syntax)
 );

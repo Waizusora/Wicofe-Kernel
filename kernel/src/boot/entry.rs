@@ -135,12 +135,10 @@ unsafe fn initialize_bootstrap_pmm(boot_info: &BootInfo<'_>) -> Result<Pmm<'stat
 pub extern "C" fn wicofe_bootstrap() -> ! {
     // Resolve linker bounds without reading the bytes at either symbol.
     // SAFETY: The final linker scripts define both symbols as image boundaries.
-    let (linker_start, linker_end) = unsafe {
-        (
-            core::ptr::addr_of!(__kernel_start) as u64,
-            core::ptr::addr_of!(__kernel_end) as u64,
-        )
-    };
+    let (linker_start, linker_end) = (
+        core::ptr::addr_of!(__kernel_start) as u64,
+        core::ptr::addr_of!(__kernel_end) as u64,
+    );
 
     // SAFETY: Limine has completed the handoff. The response records and all
     // nested pointers must be mapped/readable under the active HHDM. The
