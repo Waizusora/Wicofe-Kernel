@@ -312,6 +312,98 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         })
     }
 
+    /// Create an inactive address-space root owned by this pool.
+    ///
+    /// The new root is zeroed and contains no inherited kernel mappings. It
+    /// must not be activated until the caller has installed every mapping
+    /// required by the execution environment.
+    pub fn create_address_space(&mut self) -> Result<PhysAddr, PageTablePoolError> {
+        self.allocate_zeroed_table()
+    }
+
+    /// Destroy an inactive address space and release its owned page-table tree.
+    ///
+    /// Only child tables tracked by this pool are traversed or released.
+    /// Non-owned child tables are treated as borrowed/shared and are left
+    /// untouched. Leaf mappings are cleared only by releasing their containing
+    /// owned tables; mapped data frames are never freed here.
+    ///
+    /// # Safety
+    /// The root must not be active on any CPU, no page-table walker may access
+    /// it, and all TLB references to the address space must already have been
+    /// invalidated on every CPU. The caller must also ensure that no other
+    /// address space relies on an owned child table being reclaimed.
+    pub unsafe fn destroy_address_space(
+        &mut self,
+        root: PhysAddr,
+        physical_address_bits: u8,
+    ) -> Result<(), PageTableHierarchyError> {
+        if !self.owned.iter().any(|slot| *slot == Some(root)) {
+            return Err(PageTableHierarchyError::Pool(
+                PageTablePoolError::FrameNotOwned,
+            ));
+        }
+        let mask = physical_address_mask(physical_address_bits)
+            .map_err(PageTableHierarchyError::Paging)?;
+        if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
+            return Err(PageTableHierarchyError::Paging(X86PagingError::InvalidRootTable));
+        }
+
+        for index in 0..512 {
+            let entry = read_table_entry(&self.memory, root, index)
+                .map_err(PageTableHierarchyError::Paging)?;
+            if entry & PRESENT == 0 || entry & HUGE_PAGE != 0 {
+                continue;
+            }
+            let child = PhysAddr::new(entry & mask);
+            self.destroy_owned_child(root, index, child, 3, mask)?;
+        }
+
+        // SAFETY: The caller guarantees the complete address space is inactive
+        // and detached from all CPU walkers and TLBs.
+        unsafe { self.release_table_frame(root) }.map_err(PageTableHierarchyError::Pool)
+    }
+
+    fn destroy_owned_child(
+        &mut self,
+        parent: PhysAddr,
+        index: u16,
+        child: PhysAddr,
+        child_level: u8,
+        physical_mask: u64,
+    ) -> Result<(), PageTableHierarchyError> {
+        if !self.owned.iter().any(|slot| *slot == Some(child)) {
+            return Ok(());
+        }
+
+        if child_level > 1 {
+            for child_index in 0..512 {
+                let entry = read_table_entry(&self.memory, child, child_index)
+                    .map_err(PageTableHierarchyError::Paging)?;
+                if entry & PRESENT == 0 || entry & HUGE_PAGE != 0 {
+                    continue;
+                }
+                let grandchild = PhysAddr::new(entry & physical_mask);
+                self.destroy_owned_child(
+                    child,
+                    child_index,
+                    grandchild,
+                    child_level - 1,
+                    physical_mask,
+                )?;
+            }
+        }
+
+        if !self.memory.write_entry(parent, index, 0) {
+            return Err(PageTableHierarchyError::Paging(
+                X86PagingError::MemoryAccessFailed,
+            ));
+        }
+        // SAFETY: The child is owned by this pool, recursively detached from
+        // owned descendants, and the public caller guarantees no active walkers.
+        unsafe { self.release_table_frame(child) }.map_err(PageTableHierarchyError::Pool)
+    }
+
     /// Allocate one PMM frame and clear all 4096 bytes before exposing it.
     pub fn allocate_zeroed_table(&mut self) -> Result<PhysAddr, PageTablePoolError> {
         if self.owned_count == CAPACITY {
