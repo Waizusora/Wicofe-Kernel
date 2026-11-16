@@ -16,6 +16,9 @@ mod validate;
 #[cfg(target_os = "none")]
 mod entry;
 
+#[cfg(target_os = "none")]
+pub use entry::wicofe_bootstrap;
+
 pub use consume::{LimineBootInfoError, consume_limine_boot_info};
 pub use early_memory::{EarlyMemoryPlanError, EarlyMemoryRange, build_early_memory_plan};
 pub use handoff::{BootHandoffError, validate_limine_handoff};
