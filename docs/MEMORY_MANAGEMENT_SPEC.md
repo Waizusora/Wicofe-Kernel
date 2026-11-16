@@ -1,14 +1,14 @@
 # WICOFE Memory Management Specification
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
-- **Version:** 1.9
+- **Version:** 2.0
 - **Status:** Initial PMM bootstrap implemented; x86-64 BIOS/QEMU runtime validation passed
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
 
 ## 1. Purpose and scope
 
-This document establishes the memory-management architecture for the WICOFE kernel. It records the selected Custom Hybrid Memory Manager approach. It is a design specification; it does not claim that any allocator, page-table manager, or memory subsystem has been implemented.
+This document establishes the memory-management architecture and records both implemented foundations and planned work. Implemented status is stated per subsystem; design requirements must not be mistaken for completed functionality.
 
 The subsystem is divided into four cooperating areas:
 
@@ -306,28 +306,35 @@ virtual-address size. Read access is implicit in the initial architecture
 backends. Cache attributes are represented as intent and must be translated
 or rejected by the architecture backend according to the target memory type.
 
-This is validation only. It does not allocate page-table frames, modify
-hardware page tables, map/unmap memory, switch CR3/TTBR, invalidate TLBs, or
-provide address-space ownership. Those operations must be added behind
-architecture-specific backends with explicit PMM integration and TLB
-synchronization before the VMM can be activated by the boot path.
+This common layer validates mapping requests only. It does not allocate page-table frames, modify hardware page tables, switch CR3/TTBR, invalidate TLBs, or provide address-space ownership. Architecture-specific operations remain separate and must preserve the common layer's W^X and range invariants.
 
 ### 5.2 x86-64 four-level paging primitives
 
-The initial x86-64 backend in kernel/src/arch/x86_64/paging.rs now provides a
-checked encoder for 4 KiB, 2 MiB, and 1 GiB leaf entries and extracts the
+The x86-64 backend in kernel/src/arch/x86_64/paging.rs provides checked
+leaf-entry encoding for 4 KiB, 2 MiB, and 1 GiB pages and extracts the
 PML4/PDPT/PD/PT indices for 48-bit canonical virtual addresses. The encoder
-validates the configured physical-address width (32–52 bits), physical
-alignment, physical-range bounds, writable/user/cache/global flags, huge-page
-selection, and NX availability. Non-executable mappings require NX support
-and encode the NX bit; executable mappings leave NX clear.
+validates physical-address width (32–52 bits), alignment, address bounds,
+mapping flags, huge-page selection, and NX availability.
 
-These are descriptor primitives only. The backend does not allocate or
-initialize page-table pages, walk existing tables, install a new CR3, modify
-Limine's active mappings, or issue TLB invalidations. The kernel must preserve
-the inherited Limine page tables until a complete replacement hierarchy and
-all required identity, kernel, HHDM, and device mappings have been built and
-validated. No runtime page-table mutation is enabled by this milestone.
+The backend also provides a page-table memory abstraction and a four-level
+walker. The walker can install and remove leaf mappings in an already
+populated hierarchy and translate virtual addresses through 4 KiB, 2 MiB,
+and 1 GiB leaves. It validates the root table, canonical virtual addresses,
+alignment, intermediate hierarchy shape, missing tables, and occupied or
+absent leaves. Synthetic table tests cover map/translate/unmap, huge-page
+translation, missing intermediate tables, and invalid roots.
+
+This remains a low-level, inactive page-table primitive. It does not allocate
+or zero intermediate tables, track ownership of page-table frames, reclaim
+empty tables, install a new CR3, modify Limine's active mappings, or issue
+TLB invalidations. The current memory interface is an abstraction; a
+production HHDM-backed implementation and transactional PMM integration are
+still required. Parent-table permission propagation/effective-permission
+reporting, page-fault integration, and SMP/TLB synchronization are also not
+implemented. The kernel must preserve Limine's inherited page tables until a
+complete replacement hierarchy and all required identity, kernel, HHDM, and
+device mappings have been built and validated. No runtime page-table mutation
+is enabled by the boot path.
 
 Responsibilities include:
 
