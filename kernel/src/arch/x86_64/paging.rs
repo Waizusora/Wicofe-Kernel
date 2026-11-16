@@ -34,6 +34,7 @@ pub enum X86PagingError {
     AlreadyMapped,
     NotMapped,
     InsufficientIntermediatePermissions,
+    InsufficientIntermediateExecutePermission,
     MemoryAccessFailed,
 }
 
@@ -306,6 +307,9 @@ fn check_parent_permissions(entry: u64, flags: PageFlags) -> Result<(), X86Pagin
     let missing_user_permission = flags.is_user() && entry & USER == 0;
     if missing_write_permission || missing_user_permission {
         return Err(X86PagingError::InsufficientIntermediatePermissions);
+    }
+    if flags.is_executable() && entry & NO_EXECUTE != 0 {
+        return Err(X86PagingError::InsufficientIntermediateExecutePermission);
     }
     Ok(())
 }
@@ -583,6 +587,35 @@ mod tests {
             ),
             Err(X86PagingError::InsufficientIntermediatePermissions)
         );
+    }
+
+    #[test]
+    fn executable_leaf_rejects_nx_at_every_intermediate_level() {
+        let mut tables = synthetic_four_level_tables();
+        let root = PhysAddr::new(0x1000);
+        let address = VirtAddr::new(0xffff_8000_0000_3000);
+
+        for (table, index) in [(0x1000, 256), (0x2000, 0), (0x3000, 0)] {
+            let table_address = PhysAddr::new(table);
+            let original = tables.read_entry(table_address, index).unwrap();
+            assert!(tables.write_entry(table_address, index, original | NO_EXECUTE));
+
+            assert_eq!(
+                map_leaf(
+                    &mut tables,
+                    root,
+                    address,
+                    PhysAddr::new(0x9000),
+                    PageSize::Size4KiB,
+                    PageFlags::KERNEL_EXECUTABLE,
+                    48,
+                    true,
+                ),
+                Err(X86PagingError::InsufficientIntermediateExecutePermission)
+            );
+
+            assert!(tables.write_entry(table_address, index, original));
+        }
     }
 
     #[test]
