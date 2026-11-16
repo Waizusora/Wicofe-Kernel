@@ -6,6 +6,7 @@
 //! a complete replacement address space has been constructed and validated.
 
 use crate::memory::{PhysAddr, VirtAddr};
+use crate::pmm::{Pmm, PmmError};
 use crate::vmm::{AddressGeometry, PageFlags, PageSize};
 
 const PRESENT: u64 = 1 << 0;
@@ -259,6 +260,117 @@ impl PageTableMemory for HhdmPageTableMemory {
         // every accessed table page is mapped writable through the HHDM.
         unsafe { core::ptr::write_volatile(pointer, value) };
         true
+    }
+}
+
+/// Errors while obtaining and managing PMM-backed page-table frames.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PageTablePoolError {
+    CapacityExhausted,
+    InvalidHhdmAddress,
+    FrameNotOwned,
+    Pmm(PmmError),
+}
+
+/// Owns a bounded set of zero-initialized page-table frames from the PMM.
+///
+/// The pool deliberately does not create parent entries or activate a root.
+/// Its fixed capacity avoids requiring a kernel heap during early boot.
+pub struct PageTableFramePool<'p, 'r, const CAPACITY: usize> {
+    pmm: &'p mut Pmm<'r>,
+    memory: HhdmPageTableMemory,
+    owned: [Option<PhysAddr>; CAPACITY],
+    owned_count: usize,
+}
+
+impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
+    /// Construct a page-table frame pool over the existing bootstrap PMM.
+    ///
+    /// # Safety
+    /// The HHDM must remain active and writable for the pool lifetime. Every
+    /// frame returned by the PMM must be mapped by the HHDM. The caller must
+    /// serialize all PMM and page-table operations on this single CPU.
+    pub unsafe fn new(
+        pmm: &'p mut Pmm<'r>,
+        hhdm_offset: u64,
+        physical_address_bits: u8,
+    ) -> Result<Self, X86PagingError> {
+        // SAFETY: This constructor forwards the caller's HHDM mapping contract.
+        let memory = unsafe { HhdmPageTableMemory::new(hhdm_offset, physical_address_bits)? };
+        Ok(Self {
+            pmm,
+            memory,
+            owned: [None; CAPACITY],
+            owned_count: 0,
+        })
+    }
+
+    /// Allocate one PMM frame and clear all 4096 bytes before exposing it.
+    pub fn allocate_zeroed_table(&mut self) -> Result<PhysAddr, PageTablePoolError> {
+        if self.owned_count == CAPACITY {
+            return Err(PageTablePoolError::CapacityExhausted);
+        }
+
+        let frame = self
+            .pmm
+            .allocate_frame(0x5749_434f_4645_5054)
+            .map_err(PageTablePoolError::Pmm)?;
+        let Some(pointer) = self.memory.entry_pointer(frame, 0) else {
+            let _ = self.pmm.free_frame(frame);
+            return Err(PageTablePoolError::InvalidHhdmAddress);
+        };
+
+        // SAFETY: The pool constructor requires the HHDM to map every PMM
+        // frame writable. The frame was just allocated and is exclusively
+        // owned by this pool, so clearing its full page is valid.
+        unsafe { core::ptr::write_bytes(pointer.cast::<u8>(), 0, 4096) };
+
+        let Some(slot) = self.owned.iter_mut().find(|slot| slot.is_none()) else {
+            let _ = self.pmm.free_frame(frame);
+            return Err(PageTablePoolError::CapacityExhausted);
+        };
+        *slot = Some(frame);
+        self.owned_count += 1;
+        Ok(frame)
+    }
+
+    /// Release a frame previously allocated by this pool.
+    ///
+    /// # Safety
+    /// The caller must first remove every page-table reference to the frame,
+    /// ensure no CPU can walk or access it, and complete the required TLB
+    /// shootdown before releasing it. This method does not edit parent entries
+    /// or invalidate TLBs.
+    pub unsafe fn release_table_frame(
+        &mut self,
+        frame: PhysAddr,
+    ) -> Result<(), PageTablePoolError> {
+        let Some(slot) = self.owned.iter_mut().find(|slot| **slot == Some(frame)) else {
+            return Err(PageTablePoolError::FrameNotOwned);
+        };
+        let Some(pointer) = self.memory.entry_pointer(frame, 0) else {
+            return Err(PageTablePoolError::InvalidHhdmAddress);
+        };
+
+        // SAFETY: The caller guarantees that no page-table walker can still
+        // access this detached frame. The HHDM mapping remains valid.
+        unsafe { core::ptr::write_bytes(pointer.cast::<u8>(), 0, 4096) };
+        self.pmm
+            .free_frame(frame)
+            .map_err(PageTablePoolError::Pmm)?;
+        *slot = None;
+        self.owned_count -= 1;
+        Ok(())
+    }
+
+    /// Access the HHDM-backed page-table memory adapter.
+    pub fn memory(&mut self) -> &mut HhdmPageTableMemory {
+        &mut self.memory
+    }
+
+    /// Number of page-table frames currently owned by this pool.
+    pub const fn owned_frame_count(&self) -> usize {
+        self.owned_count
     }
 }
 
@@ -575,6 +687,91 @@ mod tests {
         // SAFETY: The overflowing alias is rejected before any pointer is dereferenced.
         let overflowing = unsafe { HhdmPageTableMemory::new(u64::MAX - 0x7ff, 48) }.unwrap();
         assert_eq!(overflowing.read_entry(PhysAddr::new(0x1000), 0), None);
+    }
+
+    #[test]
+    fn pmm_page_table_pool_zeroes_tracks_and_releases_frames() {
+        use crate::boot::EarlyMemoryRange;
+        use crate::pmm::FrameMetadata;
+        use core::num::NonZeroU64;
+
+        #[repr(align(4096))]
+        struct Backing([u8; 8192]);
+
+        let mut backing = Backing([0xa5; 8192]);
+        let physical_base = 0x1000u64;
+        let hhdm_offset = (backing.0.as_mut_ptr() as u64) - physical_base;
+        let ranges = [EarlyMemoryRange {
+            base: physical_base,
+            length: 0x2000,
+        }];
+        let mut bitmap = [0u8; 1];
+        let mut metadata = [FrameMetadata::default(); 2];
+        let mut pmm = Pmm::new(
+            &ranges,
+            NonZeroU64::new(4096).unwrap(),
+            &mut bitmap,
+            &mut metadata,
+        )
+        .unwrap();
+
+        // SAFETY: The aligned backing buffer is writable, exclusively borrowed,
+        // and the synthetic HHDM maps both candidate frames into that buffer.
+        let mut pool = unsafe { PageTableFramePool::<2>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let frame = pool.allocate_zeroed_table().unwrap();
+        assert_eq!(frame, PhysAddr::new(physical_base));
+        assert_eq!(pool.owned_frame_count(), 1);
+        assert!(backing.0[..4096].iter().all(|byte| *byte == 0));
+        assert_eq!(pool.memory().read_entry(frame, 0), Some(0));
+
+        // SAFETY: The test has not installed this frame in any page-table
+        // hierarchy, so it is detached and has no possible TLB references.
+        unsafe { pool.release_table_frame(frame) }.unwrap();
+        assert_eq!(pool.owned_frame_count(), 0);
+        assert_eq!(backing.0[..4096].iter().filter(|byte| **byte == 0).count(), 4096);
+    }
+
+    #[test]
+    fn pmm_page_table_pool_enforces_capacity_and_ownership() {
+        use crate::boot::EarlyMemoryRange;
+        use crate::pmm::FrameMetadata;
+        use core::num::NonZeroU64;
+
+        #[repr(align(4096))]
+        struct Backing([u8; 8192]);
+
+        let mut backing = Backing([0x5a; 8192]);
+        let physical_base = 0x1000u64;
+        let hhdm_offset = (backing.0.as_mut_ptr() as u64) - physical_base;
+        let ranges = [EarlyMemoryRange {
+            base: physical_base,
+            length: 0x2000,
+        }];
+        let mut bitmap = [0u8; 1];
+        let mut metadata = [FrameMetadata::default(); 2];
+        let mut pmm = Pmm::new(
+            &ranges,
+            NonZeroU64::new(4096).unwrap(),
+            &mut bitmap,
+            &mut metadata,
+        )
+        .unwrap();
+
+        // SAFETY: The synthetic HHDM maps the aligned backing buffer and no
+        // frame is concurrently accessed.
+        let mut pool = unsafe { PageTableFramePool::<1>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let frame = pool.allocate_zeroed_table().unwrap();
+        assert_eq!(
+            pool.allocate_zeroed_table(),
+            Err(PageTablePoolError::CapacityExhausted)
+        );
+        // SAFETY: The frame is not installed in any page-table tree.
+        assert_eq!(
+            unsafe { pool.release_table_frame(PhysAddr::new(0x9000)) },
+            Err(PageTablePoolError::FrameNotOwned)
+        );
+        // SAFETY: The allocated frame remains detached in this test.
+        unsafe { pool.release_table_frame(frame) }.unwrap();
     }
 
     #[test]
