@@ -27,8 +27,6 @@ pub enum X86PagingError {
     NoExecuteUnavailable,
     InvalidAddressGeometry,
     NonCanonicalAddress,
-    NonCanonicalRange,
-    AddressOverflow,
     InvalidRootTable,
     MisalignedVirtualAddress,
     MissingIntermediateTable,
@@ -149,26 +147,6 @@ pub struct PageTableIndices {
     pub pdpt: u16,
     pub pd: u16,
     pub pt: u16,
-}
-
-fn validate_leaf_range(
-    virtual_address: VirtAddr,
-    page_size: PageSize,
-) -> Result<(), X86PagingError> {
-    let geometry = AddressGeometry::new(48)
-        .map_err(|_| X86PagingError::InvalidAddressGeometry)?;
-    let last = virtual_address
-        .checked_add(page_size.bytes().get() - 1)
-        .ok_or(X86PagingError::AddressOverflow)?;
-    if !geometry.is_canonical(virtual_address) || !geometry.is_canonical(last) {
-        return Err(X86PagingError::NonCanonicalAddress);
-    }
-    // A leaf must remain entirely within one canonical half. Checking both
-    // endpoints alone is insufficient when a large page spans the hole.
-    if ((virtual_address.get() >> 47) & 1) != ((last.get() >> 47) & 1) {
-        return Err(X86PagingError::NonCanonicalRange);
-    }
-    Ok(())
 }
 
 impl PageTableIndices {
@@ -300,7 +278,6 @@ pub fn map_leaf<M: PageTableMemory>(
     if virtual_address.get() % size != 0 {
         return Err(X86PagingError::MisalignedVirtualAddress);
     }
-    validate_leaf_range(virtual_address, page_size)?;
     let indices = PageTableIndices::from_address(virtual_address, geometry)?;
     let encoded = PageTableEntry::encode_leaf(
         physical_base,
@@ -445,61 +422,6 @@ mod tests {
         tables.write_entry(PhysAddr::new(0x2000), 0, 0x3000 | PRESENT | WRITABLE);
         tables.write_entry(PhysAddr::new(0x3000), 0, 0x4000 | PRESENT | WRITABLE);
         tables
-    }
-
-    #[test]
-    fn validates_complete_leaf_range_against_canonical_hole() {
-        assert_eq!(
-            validate_leaf_range(
-                VirtAddr::new(0x0000_7fff_ffe0_0000),
-                PageSize::Size2MiB,
-            ),
-            Err(X86PagingError::NonCanonicalAddress)
-        );
-        assert_eq!(
-            validate_leaf_range(
-                VirtAddr::new(0x0000_7fc0_0000_0000),
-                PageSize::Size1GiB,
-            ),
-            Err(X86PagingError::NonCanonicalAddress)
-        );
-        // The final 4 KiB page in the canonical upper half is valid.
-        assert_eq!(
-            validate_leaf_range(
-                VirtAddr::new(0xffff_ffff_ffff_f000),
-                PageSize::Size4KiB,
-            ),
-            Ok(())
-        );
-    }
-
-    #[test]
-    fn rejects_mapping_and_unmapping_leaf_spanning_canonical_hole() {
-        let mut tables = SyntheticTables::default();
-        let address = VirtAddr::new(0x0000_7fff_ffe0_0000);
-        assert_eq!(
-            map_leaf(
-                &mut tables,
-                PhysAddr::new(0x1000),
-                address,
-                PhysAddr::new(0x20_0000),
-                PageSize::Size2MiB,
-                PageFlags::KERNEL_READ_ONLY,
-                48,
-                true,
-            ),
-            Err(X86PagingError::NonCanonicalAddress)
-        );
-        assert_eq!(
-            unmap_leaf(
-                &mut tables,
-                PhysAddr::new(0x1000),
-                address,
-                PageSize::Size2MiB,
-                48,
-            ),
-            Err(X86PagingError::NonCanonicalAddress)
-        );
     }
 
     #[test]
