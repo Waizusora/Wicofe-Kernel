@@ -34,5 +34,5 @@ xorriso -as mkisofs -R -r -J \
     -b boot/limine/limine-bios-cd.bin \
     -no-emul-boot -boot-load-size 4 -boot-info-table \
     "$ISO_ROOT" -o "$OUTPUT_PATH"
-"$LIMINE_DIR/limine" bios-install "$OUTPUT_PATH"
+"$LIMINE_DIR/limine" bios-install --force "$OUTPUT_PATH"
 echo "Created BIOS-bootable WICOFE ISO: $OUTPUT_PATH"
