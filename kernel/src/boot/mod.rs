@@ -8,6 +8,7 @@ mod early_memory;
 mod handoff;
 mod info;
 mod limine;
+mod pmm_metadata;
 mod requests;
 mod reservations;
 mod validate;
@@ -31,6 +32,9 @@ pub use limine::{
     LimineMemmapResponse, LimineModuleResponse, LimineUuid, normalize_executable_address_response,
     normalize_hhdm_response, normalize_memory_kind, normalize_memory_map_response,
     normalize_module_response,
+};
+pub use pmm_metadata::{
+    PmmMetadataError, PmmMetadataLayout, plan_pmm_metadata_placement,
 };
 pub use requests::{
     BaseRevisionTag, LIMINE_BASE_REVISION, LIMINE_BASE_REVISION_TAG, LIMINE_COMMON_MAGIC,
