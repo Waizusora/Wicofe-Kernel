@@ -30,7 +30,8 @@ jobs:
           dpkg-query -W -f='${binary:Package}\t${Version}\n' | sort > target/ci-audit/packages.before.tsv
           sudo apt-get update
           sudo apt-get install --yes \
-            build-essential=12.12ubuntu2.26.04.2 \
+            clang-22=1:22.1.2-1ubuntu1 \
+            llvm-22-tools=1:22.1.2-1ubuntu1 \
             qemu-system-x86=1:10.2.1+ds-1ubuntu3.3 \
             xorriso=1:1.5.6-1.1ubuntu4
           dpkg-query -W -f='${binary:Package}\t${Version}\n' | sort > target/ci-audit/packages.after.tsv
@@ -50,8 +51,8 @@ jobs:
             uname -a
             rustc --version
             cargo --version
-            make --version | head -n 1
-            tar --version | head -n 1
+            clang-22 --version | head -n 1
+            llvm-readelf-22 --version | head -n 1
             curl --version | head -n 1
             xorriso -version | head -n 1
             qemu-system-x86_64 --version | head -n 1
@@ -62,7 +63,7 @@ jobs:
           import subprocess
           from pathlib import Path
           packages = {}
-          for tool in ("make", "tar", "sha256sum", "curl", "xorriso", "qemu-system-x86_64", "readelf"):
+          for tool in ("clang-22", "llvm-readelf-22", "curl", "xorriso", "qemu-system-x86_64"):
               executable = subprocess.run(["which", tool], capture_output=True, text=True).stdout.strip()
               if not executable:
                   continue
@@ -96,8 +97,8 @@ jobs:
       - name: Build x86-64 kernel ELF
         run: |
           cargo build -p wicofe-kernel --features kernel-image --bin wicofe-kernel --target x86_64-unknown-none
-          readelf -h target/x86_64-unknown-none/debug/wicofe-kernel
-          readelf -l target/x86_64-unknown-none/debug/wicofe-kernel
+          llvm-readelf-22 -h target/x86_64-unknown-none/debug/wicofe-kernel
+          llvm-readelf-22 -l target/x86_64-unknown-none/debug/wicofe-kernel
           python3 scripts/verify_kernel_elf.py target/x86_64-unknown-none/debug/wicofe-kernel
       - name: Build Limine ISO
         run: scripts/build_limine_iso.sh target/wicofe-x86_64.iso
@@ -114,7 +115,14 @@ jobs:
           xorriso -indev target/wicofe-x86_64.iso -ls /boot/limine/licenses/limine-12.9.6 | tee target/ci-audit/iso-notices.txt
           grep -Fq "COPYING" target/ci-audit/iso-notices.txt
           grep -Fq "3RDPARTY.md" target/ci-audit/iso-notices.txt
-          sha256sum target/wicofe-x86_64.iso > target/wicofe-x86_64.iso.sha256
+          python3 - target/wicofe-x86_64.iso target/wicofe-x86_64.iso.sha256 <<'PY'
+          import hashlib
+          import sys
+          from pathlib import Path
+          path = Path(sys.argv[1])
+          digest = hashlib.sha256(path.read_bytes()).hexdigest()
+          Path(sys.argv[2]).write_text(f"{digest}  {path.name}\n", encoding="utf-8")
+          PY
       - name: Boot kernel in QEMU
         run: |
           set +e
