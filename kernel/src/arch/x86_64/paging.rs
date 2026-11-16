@@ -346,7 +346,9 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         let mask = physical_address_mask(physical_address_bits)
             .map_err(PageTableHierarchyError::Paging)?;
         if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
-            return Err(PageTableHierarchyError::Paging(X86PagingError::InvalidRootTable));
+            return Err(PageTableHierarchyError::Paging(
+                X86PagingError::InvalidRootTable,
+            ));
         }
 
         for index in 0..512 {
@@ -1354,7 +1356,10 @@ mod tests {
         // An entry to a table not owned by this pool is treated as borrowed.
         // Its address is deliberately outside the synthetic PMM backing; a
         // correct destroy operation must not dereference it.
-        assert!(pool.memory().write_entry(root, 511, 0x9000 | PRESENT | WRITABLE));
+        assert!(
+            pool.memory()
+                .write_entry(root, 511, 0x9000 | PRESENT | WRITABLE)
+        );
         assert_eq!(pool.owned_frame_count(), 4);
 
         // SAFETY: The address space was never activated and has no TLB entries.
@@ -1364,7 +1369,9 @@ mod tests {
         assert_eq!(pool.pmm.free_frames(), 6);
         assert_eq!(
             unsafe { pool.destroy_address_space(root, 48) },
-            Err(PageTableHierarchyError::Pool(PageTablePoolError::FrameNotOwned))
+            Err(PageTableHierarchyError::Pool(
+                PageTablePoolError::FrameNotOwned
+            ))
         );
     }
 
