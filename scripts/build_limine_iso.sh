@@ -56,9 +56,20 @@ for required in COPYING 3RDPARTY.md; do
     fi
 done
 
+if [[ ! -f "$LIMINE_DIR/limine.c" || ! -f "$LIMINE_DIR/limine-bios-hdd.h" ]]; then
+    echo "Pinned Limine archive is missing host utility source/header" >&2
+    find "$LIMINE_DIR" -maxdepth 2 -type f -printf '%P\n' >&2
+    exit 1
+fi
+CC="${CC:-clang-22}"
+if ! command -v "$CC" >/dev/null 2>&1; then
+    echo "Required C99 compiler not found: $CC" >&2
+    exit 1
+fi
+"$CC" -g -O2 -pipe -std=c99 -D_FILE_OFFSET_BITS=64 \
+    "$LIMINE_DIR/limine.c" -o "$LIMINE_DIR/limine"
 if [[ ! -x "$LIMINE_DIR/limine" ]]; then
-    echo "Pinned Limine binary archive does not contain its host utility" >&2
-    find "$LIMINE_DIR" -maxdepth 3 -type f -printf '%P\n' >&2
+    echo "Limine host utility was not built" >&2
     exit 1
 fi
 ISO_ROOT="$WORK_DIR/iso_root"
