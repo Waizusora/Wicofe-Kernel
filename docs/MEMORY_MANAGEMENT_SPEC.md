@@ -343,10 +343,14 @@ The pool also provides an inactive address-space destruction operation. It
 walks the owned four-level page-table tree, skips huge-page leaves, detaches
 owned child tables before releasing them, and finally releases the owned root.
 Non-owned child tables are treated as borrowed/shared and are not dereferenced
-or released. Mapped data frames are never freed by page-table teardown. The
-caller must ensure that a shared table branch does not contain pool-owned
-descendants that are expected to be reclaimed through this root; cross-address
-space ownership and shared-subtree reference counting are not implemented.
+or released. Before releasing any frame, teardown validates the complete
+owned subtree and rejects recursive or multiply referenced owned tables. This
+preflight prevents infinite recursion and prevents freeing a table while a
+second parent entry still references it. Mapped data frames are never freed by
+page-table teardown. The caller must ensure that a shared table branch does
+not contain pool-owned descendants that are expected to be reclaimed through
+this root; cross-address space ownership and shared-subtree reference counting
+are not implemented.
 
 These operations are still restricted to private, inactive address spaces.
 The caller must guarantee that no CPU can walk the hierarchy and that no stale
