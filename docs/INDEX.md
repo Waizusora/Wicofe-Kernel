@@ -11,7 +11,6 @@ This directory is exclusively for Wicofe kernel architecture, implementation con
 - [Memory management](MEMORY_MANAGEMENT_SPEC.md)
 - [Boot protocol and handoff](BOOT_SPEC.md)
 - [x86-64 kernel image](X86_64_KERNEL_IMAGE.md)
-- [Full OS blueprint reference](FULL_OS_BLUEPRINT.md) — architecture context only; kernel-owned contracts remain the documents above.
 
 ## Kernel scope
 
