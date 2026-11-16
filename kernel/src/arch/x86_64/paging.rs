@@ -27,6 +27,12 @@ pub enum X86PagingError {
     NoExecuteUnavailable,
     InvalidAddressGeometry,
     NonCanonicalAddress,
+    InvalidRootTable,
+    MissingIntermediateTable,
+    InvalidHierarchy,
+    AlreadyMapped,
+    NotMapped,
+    MemoryAccessFailed,
 }
 
 /// A raw x86-64 paging entry.
@@ -164,6 +170,233 @@ impl PageTableIndices {
     }
 }
 
+/// Abstract access to page-table memory.
+///
+/// Implementations must only expose mapped, writable page-table storage.
+/// This interface intentionally does not activate the root or issue TLB
+/// invalidations; it is suitable for synthetic tests and a future HHDM-backed
+/// implementation.
+pub trait PageTableMemory {
+    /// Read one 64-bit entry from a 4 KiB table (512 entries).
+    fn read_entry(&self, table: PhysAddr, index: u16) -> Option<u64>;
+
+    /// Write one 64-bit entry. Return false if the table is not accessible.
+    fn write_entry(&mut self, table: PhysAddr, index: u16, value: u64) -> bool;
+}
+
+/// Result of translating a virtual address through a four-level hierarchy.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Translation {
+    pub physical_address: PhysAddr,
+    pub page_size: PageSize,
+}
+
+fn physical_address_mask(physical_address_bits: u8) -> Result<u64, X86PagingError> {
+    if !(32..=52).contains(&physical_address_bits) {
+        return Err(X86PagingError::InvalidPhysicalAddressWidth);
+    }
+    Ok(((1u64 << physical_address_bits) - 1) & !PAGE_OFFSET_MASK)
+}
+
+fn read_table_entry<M: PageTableMemory>(
+    memory: &M,
+    table: PhysAddr,
+    index: u16,
+) -> Result<u64, X86PagingError> {
+    memory
+        .read_entry(table, index)
+        .ok_or(X86PagingError::MemoryAccessFailed)
+}
+
+fn leaf_slot<M: PageTableMemory>(
+    memory: &M,
+    root: PhysAddr,
+    indices: PageTableIndices,
+    page_size: PageSize,
+    physical_address_bits: u8,
+) -> Result<(PhysAddr, u16), X86PagingError> {
+    let mask = physical_address_mask(physical_address_bits)?;
+    if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
+        return Err(X86PagingError::InvalidRootTable);
+    }
+
+    let pml4e = read_table_entry(memory, root, indices.pml4)?;
+    if pml4e & PRESENT == 0 {
+        return Err(X86PagingError::MissingIntermediateTable);
+    }
+    if pml4e & HUGE_PAGE != 0 {
+        return Err(X86PagingError::InvalidHierarchy);
+    }
+    let pdpt = PhysAddr::new(pml4e & mask);
+
+    if matches!(page_size, PageSize::Size1GiB) {
+        return Ok((pdpt, indices.pdpt));
+    }
+
+    let pdpte = read_table_entry(memory, pdpt, indices.pdpt)?;
+    if pdpte & PRESENT == 0 {
+        return Err(X86PagingError::MissingIntermediateTable);
+    }
+    if matches!(page_size, PageSize::Size1GiB) || pdpte & HUGE_PAGE != 0 {
+        return Err(X86PagingError::InvalidHierarchy);
+    }
+    let pd = PhysAddr::new(pdpte & mask);
+
+    if matches!(page_size, PageSize::Size2MiB) {
+        return Ok((pd, indices.pd));
+    }
+
+    let pde = read_table_entry(memory, pd, indices.pd)?;
+    if pde & PRESENT == 0 {
+        return Err(X86PagingError::MissingIntermediateTable);
+    }
+    if pde & HUGE_PAGE != 0 {
+        return Err(X86PagingError::InvalidHierarchy);
+    }
+    let pt = PhysAddr::new(pde & mask);
+    Ok((pt, indices.pt))
+}
+
+/// Install a leaf mapping in an already populated four-level hierarchy.
+///
+/// Intermediate tables are never allocated implicitly. This keeps PMM
+/// ownership and rollback outside this primitive until those contracts are
+/// implemented. The operation does not invalidate TLB entries.
+pub fn map_leaf<M: PageTableMemory>(
+    memory: &mut M,
+    root: PhysAddr,
+    virtual_address: VirtAddr,
+    physical_base: PhysAddr,
+    page_size: PageSize,
+    flags: PageFlags,
+    physical_address_bits: u8,
+    nx_enabled: bool,
+) -> Result<(), X86PagingError> {
+    let geometry =
+        AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
+    let indices = PageTableIndices::from_address(virtual_address, geometry)?;
+    let size = page_size.bytes().get();
+    if virtual_address.get() % size != 0 {
+        return Err(X86PagingError::NonCanonicalAddress);
+    }
+    let encoded = PageTableEntry::encode_leaf(
+        physical_base,
+        page_size,
+        flags,
+        physical_address_bits,
+        nx_enabled,
+    )?;
+    let (table, index) = leaf_slot(
+        memory,
+        root,
+        indices,
+        page_size,
+        physical_address_bits,
+    )?;
+    let current = read_table_entry(memory, table, index)?;
+    if current & PRESENT != 0 {
+        return Err(X86PagingError::AlreadyMapped);
+    }
+    if !memory.write_entry(table, index, encoded.raw()) {
+        return Err(X86PagingError::MemoryAccessFailed);
+    }
+    Ok(())
+}
+
+/// Remove a leaf mapping from an existing hierarchy.
+///
+/// Empty intermediate tables are retained. Reclaiming them requires explicit
+/// PMM ownership tracking and is intentionally left for a later milestone.
+pub fn unmap_leaf<M: PageTableMemory>(
+    memory: &mut M,
+    root: PhysAddr,
+    virtual_address: VirtAddr,
+    page_size: PageSize,
+    physical_address_bits: u8,
+) -> Result<(), X86PagingError> {
+    let geometry =
+        AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
+    let indices = PageTableIndices::from_address(virtual_address, geometry)?;
+    let size = page_size.bytes().get();
+    if virtual_address.get() % size != 0 {
+        return Err(X86PagingError::NonCanonicalAddress);
+    }
+    let (table, index) = leaf_slot(
+        memory,
+        root,
+        indices,
+        page_size,
+        physical_address_bits,
+    )?;
+    let current = read_table_entry(memory, table, index)?;
+    if current & PRESENT == 0 {
+        return Err(X86PagingError::NotMapped);
+    }
+    if !memory.write_entry(table, index, 0) {
+        return Err(X86PagingError::MemoryAccessFailed);
+    }
+    Ok(())
+}
+
+/// Translate a canonical virtual address using 4 KiB or huge-page leaves.
+pub fn translate<M: PageTableMemory>(
+    memory: &M,
+    root: PhysAddr,
+    virtual_address: VirtAddr,
+    physical_address_bits: u8,
+) -> Result<Translation, X86PagingError> {
+    let geometry =
+        AddressGeometry::new(48).map_err(|_| X86PagingError::InvalidAddressGeometry)?;
+    let indices = PageTableIndices::from_address(virtual_address, geometry)?;
+    let mask = physical_address_mask(physical_address_bits)?;
+    if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
+        return Err(X86PagingError::InvalidRootTable);
+    }
+
+    let pml4e = read_table_entry(memory, root, indices.pml4)?;
+    if pml4e & PRESENT == 0 || pml4e & HUGE_PAGE != 0 {
+        return Err(X86PagingError::NotMapped);
+    }
+    let pdpt = PhysAddr::new(pml4e & mask);
+    let pdpte = read_table_entry(memory, pdpt, indices.pdpt)?;
+    if pdpte & PRESENT == 0 {
+        return Err(X86PagingError::NotMapped);
+    }
+    if pdpte & HUGE_PAGE != 0 {
+        let size = PageSize::Size1GiB;
+        let base = pdpte & mask & !(size.bytes().get() - 1);
+        return Ok(Translation {
+            physical_address: PhysAddr::new(base | (virtual_address.get() & (size.bytes().get() - 1))),
+            page_size: size,
+        });
+    }
+
+    let pd = PhysAddr::new(pdpte & mask);
+    let pde = read_table_entry(memory, pd, indices.pd)?;
+    if pde & PRESENT == 0 {
+        return Err(X86PagingError::NotMapped);
+    }
+    if pde & HUGE_PAGE != 0 {
+        let size = PageSize::Size2MiB;
+        let base = pde & mask & !(size.bytes().get() - 1);
+        return Ok(Translation {
+            physical_address: PhysAddr::new(base | (virtual_address.get() & (size.bytes().get() - 1))),
+            page_size: size,
+        });
+    }
+
+    let pt = PhysAddr::new(pde & mask);
+    let pte = read_table_entry(memory, pt, indices.pt)?;
+    if pte & PRESENT == 0 {
+        return Err(X86PagingError::NotMapped);
+    }
+    let base = pte & mask;
+    Ok(Translation {
+        physical_address: PhysAddr::new(base | (virtual_address.get() & 0xfff)),
+        page_size: PageSize::Size4KiB,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,6 +405,140 @@ mod tests {
         Ok(value) => value,
         Err(_) => panic!("valid x86-64 geometry"),
     };
+
+    #[derive(Default)]
+    struct SyntheticTables(std::collections::BTreeMap<(u64, u16), u64>);
+
+    impl PageTableMemory for SyntheticTables {
+        fn read_entry(&self, table: PhysAddr, index: u16) -> Option<u64> {
+            self.0.get(&(table.get(), index)).copied()
+        }
+
+        fn write_entry(&mut self, table: PhysAddr, index: u16, value: u64) -> bool {
+            self.0.insert((table.get(), index), value);
+            true
+        }
+    }
+
+    fn synthetic_four_level_tables() -> SyntheticTables {
+        let mut tables = SyntheticTables::default();
+        // Root 0x1000 -> PDPT 0x2000 -> PD 0x3000 -> PT 0x4000.
+        tables.write_entry(PhysAddr::new(0x1000), 256, 0x2000 | PRESENT | WRITABLE);
+        tables.write_entry(PhysAddr::new(0x2000), 0, 0x3000 | PRESENT | WRITABLE);
+        tables.write_entry(PhysAddr::new(0x3000), 0, 0x4000 | PRESENT | WRITABLE);
+        tables
+    }
+
+    #[test]
+    fn maps_translates_and_unmaps_4k_leaf_in_synthetic_tables() {
+        let mut tables = synthetic_four_level_tables();
+        let root = PhysAddr::new(0x1000);
+        let virtual_address = VirtAddr::new(0xffff_8000_0000_3000);
+        map_leaf(
+            &mut tables,
+            root,
+            virtual_address,
+            PhysAddr::new(0x9000),
+            PageSize::Size4KiB,
+            PageFlags::KERNEL_WRITABLE,
+            48,
+            true,
+        )
+        .unwrap();
+        let translated = translate(&tables, root, VirtAddr::new(0xffff_8000_0000_3123), 48)
+            .unwrap();
+        assert_eq!(translated.physical_address, PhysAddr::new(0x9123));
+        assert_eq!(translated.page_size, PageSize::Size4KiB);
+        assert_eq!(
+            map_leaf(
+                &mut tables,
+                root,
+                virtual_address,
+                PhysAddr::new(0xa000),
+                PageSize::Size4KiB,
+                PageFlags::KERNEL_READ_ONLY,
+                48,
+                true,
+            ),
+            Err(X86PagingError::AlreadyMapped)
+        );
+        unmap_leaf(
+            &mut tables,
+            root,
+            virtual_address,
+            PageSize::Size4KiB,
+            48,
+        )
+        .unwrap();
+        assert_eq!(
+            translate(&tables, root, virtual_address, 48),
+            Err(X86PagingError::NotMapped)
+        );
+    }
+
+    #[test]
+    fn translates_existing_2m_and_1g_huge_pages() {
+        let mut tables = synthetic_four_level_tables();
+        // Replace PDPT entry with a 1 GiB leaf.
+        tables.write_entry(
+            PhysAddr::new(0x2000),
+            1,
+            0x4000_0000 | PRESENT | HUGE_PAGE,
+        );
+        let one_gib = translate(
+            &tables,
+            PhysAddr::new(0x1000),
+            VirtAddr::new(0xffff_8040_1234_5678),
+            48,
+        )
+        .unwrap();
+        assert_eq!(one_gib.page_size, PageSize::Size1GiB);
+        assert_eq!(one_gib.physical_address, PhysAddr::new(0x5234_5678));
+
+        // Restore a table at PDPT[0], then install a 2 MiB leaf in PD[2].
+        tables.write_entry(PhysAddr::new(0x2000), 1, 0);
+        tables.write_entry(
+            PhysAddr::new(0x3000),
+            2,
+            0x80_0000 | PRESENT | HUGE_PAGE,
+        );
+        let two_mib = translate(
+            &tables,
+            PhysAddr::new(0x1000),
+            VirtAddr::new(0xffff_8000_0040_1234),
+            48,
+        )
+        .unwrap();
+        assert_eq!(two_mib.page_size, PageSize::Size2MiB);
+        assert_eq!(two_mib.physical_address, PhysAddr::new(0x80_1234));
+    }
+
+    #[test]
+    fn rejects_missing_intermediate_tables_and_invalid_root() {
+        let mut tables = SyntheticTables::default();
+        assert_eq!(
+            map_leaf(
+                &mut tables,
+                PhysAddr::new(0x1000),
+                VirtAddr::new(0xffff_8000_0000_0000),
+                PhysAddr::new(0x8000),
+                PageSize::Size4KiB,
+                PageFlags::KERNEL_READ_ONLY,
+                48,
+                true,
+            ),
+            Err(X86PagingError::MemoryAccessFailed)
+        );
+        assert_eq!(
+            translate(
+                &tables,
+                PhysAddr::new(0x1001),
+                VirtAddr::new(0xffff_8000_0000_0000),
+                48
+            ),
+            Err(X86PagingError::InvalidRootTable)
+        );
+    }
 
     #[test]
     fn encodes_read_only_non_executable_4k_leaf() {
@@ -283,11 +650,9 @@ mod tests {
 
     #[test]
     fn extracts_four_level_indices_from_canonical_addresses() {
-        let high_half = PageTableIndices::from_address(
-            VirtAddr::new(0xffff_8000_0000_0000),
-            X86_64_4_LEVEL,
-        )
-        .unwrap();
+        let high_half =
+            PageTableIndices::from_address(VirtAddr::new(0xffff_8000_0000_0000), X86_64_4_LEVEL)
+                .unwrap();
         assert_eq!(
             high_half,
             PageTableIndices {
@@ -298,11 +663,9 @@ mod tests {
             }
         );
 
-        let final_page = PageTableIndices::from_address(
-            VirtAddr::new(0xffff_ffff_ffff_f000),
-            X86_64_4_LEVEL,
-        )
-        .unwrap();
+        let final_page =
+            PageTableIndices::from_address(VirtAddr::new(0xffff_ffff_ffff_f000), X86_64_4_LEVEL)
+                .unwrap();
         assert_eq!(
             final_page,
             PageTableIndices {
@@ -317,10 +680,7 @@ mod tests {
     #[test]
     fn rejects_noncanonical_addresses_and_wrong_geometry() {
         assert_eq!(
-            PageTableIndices::from_address(
-                VirtAddr::new(0x0000_8000_0000_0000),
-                X86_64_4_LEVEL
-            ),
+            PageTableIndices::from_address(VirtAddr::new(0x0000_8000_0000_0000), X86_64_4_LEVEL),
             Err(X86PagingError::NonCanonicalAddress)
         );
         let geometry = AddressGeometry::new(57).unwrap();
