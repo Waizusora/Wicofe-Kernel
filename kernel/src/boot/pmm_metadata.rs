@@ -185,9 +185,7 @@ mod tests {
         let ranges = [range(0x1000, 0x20_000), range(0x40_000, 0x10_000)];
         let mut output = [range(0, 0); 2];
         let (layout, count) =
-            plan_pmm_metadata_placement(&ranges, PAGE,
-                FRAME_META,
-                &mut output).unwrap();
+            plan_pmm_metadata_placement(&ranges, PAGE, FRAME_META, &mut output).unwrap();
 
         assert_eq!(layout.tracked_frames, 48);
         assert_eq!(layout.bitmap_bytes, 6);
@@ -233,21 +231,23 @@ mod tests {
         assert_eq!(
             plan_pmm_metadata_placement(
                 &[range(0x3000, 0x1000), range(0x1000, 0x1000)],
-                PAGE, FRAME_META, &mut output
+                PAGE,
+                FRAME_META,
+                &mut output
             ),
             Err(PmmMetadataError::InvalidEarlyMemoryPlan)
         );
         assert_eq!(
             plan_pmm_metadata_placement(
                 &[range(0x1000, 0x3000), range(0x3000, 0x1000)],
-                PAGE, FRAME_META, &mut output
+                PAGE,
+                FRAME_META,
+                &mut output
             ),
             Err(PmmMetadataError::InvalidEarlyMemoryPlan)
         );
         assert_eq!(
-            plan_pmm_metadata_placement(
-                &[range(0x1001, 0x2000)], PAGE, FRAME_META, &mut output
-            ),
+            plan_pmm_metadata_placement(&[range(0x1001, 0x2000)], PAGE, FRAME_META, &mut output),
             Err(PmmMetadataError::InvalidEarlyMemoryPlan)
         );
     }
@@ -279,7 +279,10 @@ mod tests {
         let mut output = [range(0, 0); 2];
         assert_eq!(
             plan_pmm_metadata_placement(
-                &ranges, NonZeroU64::new(3000).unwrap(), FRAME_META, &mut output
+                &ranges,
+                NonZeroU64::new(3000).unwrap(),
+                FRAME_META,
+                &mut output
             ),
             Err(PmmMetadataError::InvalidPageSize)
         );
