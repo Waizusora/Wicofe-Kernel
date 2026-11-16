@@ -4,6 +4,7 @@
 //! kernel code should consume only validated WICOFE-owned structures.
 
 mod consume;
+mod early_memory;
 mod handoff;
 mod info;
 mod limine;
@@ -15,6 +16,7 @@ mod validate;
 mod entry;
 
 pub use consume::{LimineBootInfoError, consume_limine_boot_info};
+pub use early_memory::{EarlyMemoryPlanError, EarlyMemoryRange, build_early_memory_plan};
 pub use handoff::{BootHandoffError, validate_limine_handoff};
 pub use info::{
     BootInfo, BootInfoError, BootModule, FramebufferInfo, KernelImage, KernelImageBoundsError,
