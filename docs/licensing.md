@@ -35,7 +35,7 @@ This preserves the BSD-2-Clause notice and the upstream third-party attribution/
 
 ## Build and test toolchain findings
 
-The Limine host utility is now compiled directly from its C99 source with pinned `clang-22`; GNU Make is no longer invoked. Archive SHA-256 verification and safe `.tar.xz` extraction use Python's standard library (`hashlib` and `tarfile` with the data extraction filter), removing GNU coreutils `sha256sum` and GNU tar from the build script. ELF inspection uses `llvm-readelf-22` rather than GNU binutils `readelf`.
+The Limine host utility is taken from the pinned binary release archive; no GNU Make or compiler is needed to rebuild it in this workflow. Archive SHA-256 verification and safe `.tar.xz` extraction use Python's standard library (`hashlib` and `tarfile` with the data extraction filter), removing GNU coreutils `sha256sum` and GNU tar from the build script. ELF inspection uses `llvm-readelf-22` rather than GNU binutils `readelf.
 
 The remaining CI dependencies include:
 
@@ -43,7 +43,7 @@ The remaining CI dependencies include:
 |---|---|---|
 | QEMU 10.2.1 | x86-64 boot test | REJECTED — GPL-2.0-or-later; build/test only, not shipped |
 | xorriso 1.5.6 | ISO image creation | REJECTED — GPL-2.0-or-later; build-only, not shipped |
-| Clang/LLVM 22.1.2 | Compile Limine host utility and inspect ELF | NEEDS_REVIEW — Apache-2.0 WITH LLVM-exception |
+| LLVM 22.1.2 tools | Inspect ELF headers and program headers | NEEDS_REVIEW — Apache-2.0 WITH LLVM-exception |
 | curl | Download pinned Limine release | NEEDS_REVIEW — upstream curl license; build-only |
 
 QEMU is retained temporarily because it provides the current automated PC/BIOS boot test. Bochs is a candidate x86 emulator under LGPL-2.1, but it requires conditional approval and a parity test; it does not cover AArch64. xorriso is retained temporarily because it reliably creates the current BIOS-bootable ISO. cdrtools/mkisofs (CDDL-1.0) and libisofs/libburn (LGPL-family) are candidates, each requiring license review and a bootable-ISO parity test. These GPL tools remain release blockers under the literal Policy 0.2 rule; they have not been silently exempted because they are not shipped.
