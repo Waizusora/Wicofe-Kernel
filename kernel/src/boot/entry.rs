@@ -5,10 +5,6 @@
 //! exception vectors, and memory management are not initialized.
 
 use super::consume_limine_boot_info;
-use super::{
-    BootInfo, BootReservation, EarlyMemoryRange, build_boot_reservations, build_early_memory_plan,
-    plan_pmm_metadata_placement,
-};
 use super::info::{BootModule, MemoryRegion, MemoryRegionKind};
 use super::limine::{
     LimineExecutableAddressResponse, LimineHhdmResponse, LimineMemmapResponse, LimineModuleResponse,
@@ -19,6 +15,10 @@ use core::num::NonZeroU64;
 use super::requests::{
     LIMINE_BASE_REVISION_TAG, LIMINE_EXECUTABLE_ADDRESS_REQUEST, LIMINE_HHDM_REQUEST,
     LIMINE_MEMMAP_REQUEST, LIMINE_MODULE_REQUEST,
+};
+use super::{
+    BootInfo, BootReservation, EarlyMemoryRange, build_boot_reservations, build_early_memory_plan,
+    plan_pmm_metadata_placement,
 };
 
 const EARLY_MEMORY_MAP_CAPACITY: usize = 256;
