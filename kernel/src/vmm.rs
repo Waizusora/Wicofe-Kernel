@@ -44,6 +44,10 @@ pub enum VmmError {
     UnknownPageFlags,
     WritableExecutableMapping,
     UserGlobalMapping,
+    InvalidRootAddress,
+    MappingOutsideAddressSpace,
+    UserMappingInKernelHalf,
+    KernelMappingInUserHalf,
 }
 
 /// Canonical-address rules for a configured virtual-address width.
@@ -258,6 +262,95 @@ impl MappingRequest {
     }
 }
 
+/// The intended privilege domain represented by an address-space root.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AddressSpaceKind {
+    /// Kernel-only root; mappings are restricted to the upper canonical half.
+    Kernel,
+    /// Process root; user mappings occupy the lower half and supervisor
+    /// mappings may occupy the upper half for shared kernel mappings.
+    User,
+}
+
+/// Non-owning description of a page-table root and its virtual-address policy.
+///
+/// This value does not allocate, own, free, activate, or mutate the root. The
+/// architecture backend or frame-pool owner remains responsible for root
+/// lifetime and must ensure that the supplied physical address identifies a
+/// valid page-table root. In particular, dropping this descriptor has no
+/// effect on the underlying page-table frames.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AddressSpace {
+    root: PhysAddr,
+    kind: AddressSpaceKind,
+    geometry: AddressGeometry,
+}
+
+impl AddressSpace {
+    /// Describe an existing page-table root.
+    ///
+    /// The root must be a valid, page-aligned physical address for the
+    /// architecture backend selected by the caller. This constructor checks
+    /// alignment only; it cannot inspect or establish the root's ownership.
+    pub const fn new(
+        root: PhysAddr,
+        kind: AddressSpaceKind,
+        geometry: AddressGeometry,
+    ) -> Result<Self, VmmError> {
+        if root.get() & (PageSize::Size4KiB.bytes().get() - 1) != 0 {
+            return Err(VmmError::InvalidRootAddress);
+        }
+        Ok(Self {
+            root,
+            kind,
+            geometry,
+        })
+    }
+
+    pub const fn root(self) -> PhysAddr {
+        self.root
+    }
+
+    pub const fn kind(self) -> AddressSpaceKind {
+        self.kind
+    }
+
+    pub const fn geometry(self) -> AddressGeometry {
+        self.geometry
+    }
+
+    /// Validate that a request obeys this root's kernel/user address policy.
+    ///
+    /// User roots intentionally permit supervisor-only mappings in the upper
+    /// canonical half so a future backend can share kernel mappings. Sharing
+    /// and ownership of those page-table branches are not implemented here.
+    pub const fn validate_mapping(self, request: MappingRequest) -> Result<(), VmmError> {
+        self.geometry.validate_range(request.virtual_range())?;
+        let upper_half = self
+            .geometry
+            .is_upper_canonical_half(request.virtual_range().start());
+        let user_mapping = request.flags().is_user();
+
+        match (self.kind, upper_half, user_mapping) {
+            (AddressSpaceKind::Kernel, true, false) => Ok(()),
+            (AddressSpaceKind::Kernel, true, true) => {
+                Err(VmmError::UserMappingInKernelHalf)
+            }
+            (AddressSpaceKind::Kernel, false, _) => {
+                Err(VmmError::MappingOutsideAddressSpace)
+            }
+            (AddressSpaceKind::User, false, true) => Ok(()),
+            (AddressSpaceKind::User, false, false) => {
+                Err(VmmError::KernelMappingInUserHalf)
+            }
+            (AddressSpaceKind::User, true, false) => Ok(()),
+            (AddressSpaceKind::User, true, true) => {
+                Err(VmmError::UserMappingInKernelHalf)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,6 +378,83 @@ mod tests {
             NonZeroU64::new(length).expect("non-empty test range"),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn address_space_enforces_kernel_and_user_half_policy() {
+        let kernel_root = AddressSpace::new(
+            PhysAddr::new(0x1000),
+            AddressSpaceKind::Kernel,
+            X86_64_4_LEVEL,
+        )
+        .unwrap();
+        let user_root = AddressSpace::new(
+            PhysAddr::new(0x2000),
+            AddressSpaceKind::User,
+            X86_64_4_LEVEL,
+        )
+        .unwrap();
+
+        let kernel_mapping = MappingRequest::new(
+            virtual_range(0xffff_8000_0000_0000, PAGE.get()),
+            physical_range(0x30_0000, PAGE.get()),
+            PageSize::Size4KiB,
+            PageFlags::KERNEL_WRITABLE,
+            X86_64_4_LEVEL,
+        )
+        .unwrap();
+        let user_mapping = MappingRequest::new(
+            virtual_range(0x0000_4000_0000_0000, PAGE.get()),
+            physical_range(0x40_0000, PAGE.get()),
+            PageSize::Size4KiB,
+            PageFlags::USER_READ_ONLY,
+            X86_64_4_LEVEL,
+        )
+        .unwrap();
+        let supervisor_low_mapping = MappingRequest::new(
+            virtual_range(0x0000_4000_0000_1000, PAGE.get()),
+            physical_range(0x50_0000, PAGE.get()),
+            PageSize::Size4KiB,
+            PageFlags::KERNEL_READ_ONLY,
+            X86_64_4_LEVEL,
+        )
+        .unwrap();
+        let user_high_mapping = MappingRequest::new(
+            virtual_range(0xffff_8000_0000_1000, PAGE.get()),
+            physical_range(0x60_0000, PAGE.get()),
+            PageSize::Size4KiB,
+            PageFlags::USER_READ_ONLY,
+            X86_64_4_LEVEL,
+        )
+        .unwrap();
+
+        assert_eq!(kernel_root.validate_mapping(kernel_mapping), Ok(()));
+        assert_eq!(
+            kernel_root.validate_mapping(user_mapping),
+            Err(VmmError::MappingOutsideAddressSpace)
+        );
+        assert_eq!(user_root.validate_mapping(user_mapping), Ok(()));
+        assert_eq!(user_root.validate_mapping(kernel_mapping), Ok(()));
+        assert_eq!(
+            user_root.validate_mapping(supervisor_low_mapping),
+            Err(VmmError::KernelMappingInUserHalf)
+        );
+        assert_eq!(
+            user_root.validate_mapping(user_high_mapping),
+            Err(VmmError::UserMappingInKernelHalf)
+        );
+    }
+
+    #[test]
+    fn address_space_rejects_unaligned_root() {
+        assert_eq!(
+            AddressSpace::new(
+                PhysAddr::new(0x1001),
+                AddressSpaceKind::Kernel,
+                X86_64_4_LEVEL,
+            ),
+            Err(VmmError::InvalidRootAddress)
+        );
     }
 
     #[test]
