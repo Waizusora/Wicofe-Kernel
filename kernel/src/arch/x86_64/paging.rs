@@ -1147,6 +1147,67 @@ mod tests {
     }
 
     #[test]
+    fn hierarchy_unmap_reclaims_empty_owned_tables_bottom_up() {
+        use crate::boot::EarlyMemoryRange;
+        use crate::pmm::FrameMetadata;
+        use core::num::NonZeroU64;
+
+        #[repr(align(4096))]
+        struct Backing([u8; 6 * 4096]);
+
+        let mut backing = Backing([0; 6 * 4096]);
+        let physical_base = 0x1000u64;
+        let hhdm_offset = (backing.0.as_mut_ptr() as u64) - physical_base;
+        let ranges = [EarlyMemoryRange {
+            base: physical_base,
+            length: 6 * 4096,
+        }];
+        let mut bitmap = [0u8; 1];
+        let mut metadata = [FrameMetadata::default(); 6];
+        let mut pmm = Pmm::new(
+            &ranges,
+            NonZeroU64::new(4096).unwrap(),
+            &mut bitmap,
+            &mut metadata,
+        )
+        .unwrap();
+
+        // SAFETY: The backing buffer is a valid private synthetic HHDM.
+        let mut pool = unsafe { PageTableFramePool::<4>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let root = pool.allocate_zeroed_table().unwrap();
+        let virtual_address = VirtAddr::new(0xffff_8000_1234_5000);
+        // SAFETY: The root is private and remains inactive throughout the test.
+        unsafe {
+            pool.map_leaf_with_tables(
+                root,
+                virtual_address,
+                PhysAddr::new(0x9000),
+                PageSize::Size4KiB,
+                PageFlags::KERNEL_WRITABLE,
+                48,
+                true,
+            )
+        }
+        .unwrap();
+        assert_eq!(pool.owned_frame_count(), 4);
+
+        // SAFETY: No CPU can walk this private root and no TLB can reference it.
+        unsafe {
+            pool.unmap_leaf_with_reclaim(
+                root,
+                virtual_address,
+                PageSize::Size4KiB,
+                48,
+            )
+        }
+        .unwrap();
+
+        assert_eq!(pool.owned_frame_count(), 1);
+        assert_eq!(pool.memory().read_entry(root, 256), Some(0));
+        assert_eq!(pool.pmm.free_frames(), 5);
+    }
+
+    #[test]
     fn hhdm_page_table_accessor_rejects_invalid_physical_width() {
         // SAFETY: Constructor validation returns before the accessor can be used.
         assert!(matches!(
