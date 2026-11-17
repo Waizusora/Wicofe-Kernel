@@ -2,7 +2,7 @@
 
 - **Document:** MEMORY_MANAGEMENT_SPEC.md
 - **Version:** 2.0
-- **Status:** Initial PMM bootstrap and inactive x86-64 page-table ownership lifecycle implemented; live VMM activation remains pending
+- **Status:** Initial PMM bootstrap, inactive x86-64 page-table ownership lifecycle, shared kernel-half references, and local TLB invalidation primitive implemented; live VMM activation remains pending
 - **Applies to:** x86-64 and AArch64
 - **License:** MPL-2.0 for original WICOFE documentation
 
@@ -308,7 +308,7 @@ or rejected by the architecture backend according to the target memory type.
 
 The common layer also defines a non-owning `AddressSpace` descriptor containing a physical root address, address-space kind, and address geometry. Construction validates root-page alignment but does not prove that the root is mapped, allocated, or owned; the architecture backend and frame-pool owner retain those responsibilities. Dropping the descriptor never frees the root.
 
-The descriptor validates privilege-domain placement before a backend applies a mapping. Kernel roots accept supervisor mappings only in the upper canonical half. User roots accept user mappings in the lower half and supervisor-only mappings in the upper half, leaving room for future shared kernel mappings; they reject supervisor mappings in the lower half and user mappings in the upper half. This is policy validation only: shared page-table branch ownership, mapping mutation, CR3/TTBR switching, TLB invalidation, and SMP shootdown remain unimplemented. Architecture-specific operations must preserve the common layer's W^X and range invariants.
+The descriptor validates privilege-domain placement before a backend applies a mapping. Kernel roots accept supervisor mappings only in the upper canonical half. User roots accept user mappings in the lower half and supervisor-only mappings in the upper half, leaving room for future shared kernel mappings; they reject supervisor mappings in the lower half and user mappings in the upper half. This is policy validation only: address-space activation, CR3/TTBR switching, and SMP shootdown remain unimplemented. The x86-64 backend separately supports borrowed upper-half page-table branches and a local INVLPG primitive; neither enables live mapping mutation. Architecture-specific operations must preserve the common layer's W^X and range invariants.
 
 ### 5.2 x86-64 four-level paging primitives
 
@@ -357,8 +357,11 @@ are not implemented.
 These operations are still restricted to private, inactive address spaces.
 The caller must guarantee that no CPU can walk the hierarchy and that no stale
 TLB translation can reference a removed mapping or reclaimed table. The
-backend does not activate CR3, invalidate TLBs, coordinate SMP shootdowns,
-modify Limine's active mappings, or provide page-fault integration. Parent
+backend does not activate CR3, perform cross-CPU TLB shootdowns,
+modify Limine's active mappings, or provide page-fault integration. It exposes
+a local x86-64 INVLPG primitive for one canonical virtual address; this
+primitive affects only the executing CPU and does not provide IPI delivery,
+remote acknowledgement, synchronization, or a safe live-mapping update protocol. Parent
 permission propagation is intentionally not provided; existing parent
 entries must already permit the requested access. The kernel must preserve
 Limine's inherited page tables until a complete replacement hierarchy and all
@@ -483,6 +486,24 @@ Debug builds should provide allocator consistency checks, reservation diagnostic
 - Validate user-supplied virtual ranges before mapping or copying.
 - Ensure page-table teardown and TLB invalidation complete before reusing frames.
 - Treat allocator metadata corruption as a kernel integrity failure.
+
+### 5.3 Shared kernel page-table branches and local TLB invalidation
+
+The x86-64 page-table pool can copy present upper-half PML4 entries from a
+kernel root into an inactive user root as borrowed references. The operation
+preflights the complete destination upper half before writing, rejects
+occupied destination slots, and rejects source PML4 entries with the USER bit
+set. It does not copy page-table frames or transfer ownership. The kernel
+hierarchy must outlive every user root that borrows its branches. Destroying a
+user root detaches its root and leaves non-owned shared branches untouched.
+
+The x86-64 backend also exposes invalidate_page_local, which executes INVLPG
+for one virtual address on the current CPU. It is a privileged, unsafe
+architecture primitive, not a complete TLB management subsystem. There is no
+APIC/IPI path, remote CPU acknowledgement, shootdown timeout handling,
+address-space activation, or CR3 switching. Page-table mutation continues to
+be restricted to inactive roots until those mechanisms and their
+synchronization contracts are implemented.
 
 ## 12. Testing and acceptance criteria
 
