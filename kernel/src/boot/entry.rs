@@ -298,6 +298,17 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
                                 core::arch::asm!("ud2");
                             }
                         }
+                        #[cfg(feature = "exception-smoke-page-fault")]
+                        {
+                            const UNMAPPED_TEST_ADDRESS: usize = 0x0000_4000_0000_0000;
+                            early_serial_write_str("WICOFE: EXCEPTION_SMOKE_PAGE_FAULT\n");
+                            // SAFETY: This test-only canonical address is deliberately
+                            // outside the kernel, bootloader, and HHDM mappings.
+                            // The volatile read must raise #PF; the dispatcher records CR2.
+                            unsafe {
+                                core::ptr::read_volatile(UNMAPPED_TEST_ADDRESS as *const u64);
+                            }
+                        }
                         // Keep allocator metadata alive. General allocation remains
                         // disabled until VMM and diagnostics are initialized.
                         loop {
