@@ -216,8 +216,6 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
 
     #[cfg(target_arch = "x86_64")]
     {
-        // SAFETY: _start entered at ring 0 with interrupts disabled. Limine's
-        // active GDT/CS and inherited kernel mappings remain in force here.
         // SAFETY: _start entered at ring 0 with interrupts disabled. The
         // inherited mappings cover the resident GDT, TSS, and IST stack.
         unsafe { crate::arch::x86_64::gdt::initialize() };
@@ -289,6 +287,15 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
                             // exception dispatcher must never return from this trap.
                             unsafe {
                                 core::arch::asm!("int3");
+                            }
+                        }
+                        #[cfg(feature = "exception-smoke-ud2")]
+                        {
+                            early_serial_write_str("WICOFE: EXCEPTION_SMOKE_UD2\n");
+                            // SAFETY: This build-only test intentionally executes
+                            // an invalid opcode to raise #UD after IDT and PMM setup.
+                            unsafe {
+                                core::arch::asm!("ud2");
                             }
                         }
                         // Keep allocator metadata alive. General allocation remains
