@@ -1212,7 +1212,7 @@ mod tests {
         );
 
         let invalid_request = MappingRequest::new(
-            VirtRange::from_start_len(VirtAddr::new(0x4000), NonZeroU64::new(4096).unwrap())
+            crate::vmm::VirtRange::from_start_len(VirtAddr::new(0x4000), NonZeroU64::new(4096).unwrap())
                 .unwrap(),
             PhysRange::from_start_len(PhysAddr::new(0xa000), NonZeroU64::new(4096).unwrap())
                 .unwrap(),
