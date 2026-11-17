@@ -7,6 +7,7 @@
 
 pub mod gdt;
 pub mod interrupts;
+pub mod irq;
 pub mod paging;
 pub mod pic;
 
