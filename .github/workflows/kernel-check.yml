@@ -170,6 +170,7 @@ jobs:
             exit 1
           fi
           cat target/qemu-irq-pit-serial.log
+          cat target/qemu-irq-pit-debug.log || true
           grep -Fq "WICOFE: BOOTSTRAP_ENTERED" target/qemu-irq-pit-serial.log
           grep -Fq "WICOFE: IRQ_PIT_SMOKE_OK" target/qemu-irq-pit-serial.log
           if grep -Fq "WICOFE: IRQ_PIT_SMOKE_FAILED" target/qemu-irq-pit-serial.log; then
