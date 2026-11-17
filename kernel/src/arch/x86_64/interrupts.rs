@@ -242,10 +242,9 @@ mod tests {
     }
 }
 
-/// Fatal exception entry and diagnostic dispatch support.
-///
-/// The stubs normalize CPU-pushed error codes and terminate through the Rust
-/// dispatcher. They are not installed into the IDT automatically.
+// Fatal exception entry and diagnostic dispatch support.
+// The stubs normalize CPU-pushed error codes and terminate through the Rust
+// dispatcher. They are not installed into the IDT automatically.
 #[cfg(target_os = "none")]
 core::arch::global_asm!(
     r#"
