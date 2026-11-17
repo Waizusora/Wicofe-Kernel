@@ -1718,6 +1718,107 @@ mod tests {
     }
 
     #[test]
+    fn shared_kernel_half_is_borrowed_and_survives_user_root_destruction() {
+        use crate::boot::EarlyMemoryRange;
+        use crate::pmm::FrameMetadata;
+        use core::num::NonZeroU64;
+
+        #[repr(align(4096))]
+        struct Backing([u8; 6 * 4096]);
+
+        let mut backing = Backing([0; 6 * 4096]);
+        let physical_base = 0x1000u64;
+        let hhdm_offset = (backing.0.as_mut_ptr() as u64) - physical_base;
+        let ranges = [EarlyMemoryRange {
+            base: physical_base,
+            length: 6 * 4096,
+        }];
+        let mut bitmap = [0u8; 1];
+        let mut metadata = [FrameMetadata::default(); 6];
+        let mut pmm = Pmm::new(
+            &ranges,
+            NonZeroU64::new(4096).unwrap(),
+            &mut bitmap,
+            &mut metadata,
+        )
+        .unwrap();
+
+        // SAFETY: The aligned backing buffer is a writable synthetic HHDM.
+        let mut pool = unsafe { PageTableFramePool::<4>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let kernel_root = pool.create_address_space().unwrap();
+        let user_root = pool.create_address_space().unwrap();
+        let shared_branch = 0x9000 | PRESENT | WRITABLE;
+        assert!(pool.memory().write_entry(kernel_root, 256, shared_branch));
+
+        // SAFETY: Both roots are private and inactive. The borrowed branch
+        // remains valid for the lifetime of the user root.
+        let shared = unsafe { pool.share_kernel_half(kernel_root, user_root, 48) }.unwrap();
+        assert_eq!(shared, 1);
+        assert_eq!(pool.memory().read_entry(user_root, 256), Some(shared_branch));
+        assert_eq!(pool.owned_frame_count(), 2);
+
+        // SAFETY: The user root is inactive; its shared branch is borrowed and
+        // must not be traversed or reclaimed by this pool.
+        unsafe { pool.destroy_address_space(user_root, 48) }.unwrap();
+        assert_eq!(pool.owned_frame_count(), 1);
+        assert_eq!(pool.memory().read_entry(kernel_root, 256), Some(shared_branch));
+
+        // SAFETY: The kernel root is also private and inactive.
+        unsafe { pool.destroy_address_space(kernel_root, 48) }.unwrap();
+        assert_eq!(pool.owned_frame_count(), 0);
+        assert_eq!(pool.pmm.free_frames(), 6);
+    }
+
+    #[test]
+    fn kernel_half_sharing_rejects_user_accessible_root_entries() {
+        use crate::boot::EarlyMemoryRange;
+        use crate::pmm::FrameMetadata;
+        use core::num::NonZeroU64;
+
+        #[repr(align(4096))]
+        struct Backing([u8; 4 * 4096]);
+
+        let mut backing = Backing([0; 4 * 4096]);
+        let physical_base = 0x1000u64;
+        let hhdm_offset = (backing.0.as_mut_ptr() as u64) - physical_base;
+        let ranges = [EarlyMemoryRange {
+            base: physical_base,
+            length: 4 * 4096,
+        }];
+        let mut bitmap = [0u8; 1];
+        let mut metadata = [FrameMetadata::default(); 4];
+        let mut pmm = Pmm::new(
+            &ranges,
+            NonZeroU64::new(4096).unwrap(),
+            &mut bitmap,
+            &mut metadata,
+        )
+        .unwrap();
+
+        // SAFETY: The aligned backing buffer is a writable synthetic HHDM.
+        let mut pool = unsafe { PageTableFramePool::<3>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let kernel_root = pool.create_address_space().unwrap();
+        let user_root = pool.create_address_space().unwrap();
+        assert!(pool
+            .memory()
+            .write_entry(kernel_root, 256, 0x9000 | PRESENT | WRITABLE | USER));
+
+        // SAFETY: Both roots are private and inactive.
+        assert_eq!(
+            unsafe { pool.share_kernel_half(kernel_root, user_root, 48) },
+            Err(PageTableHierarchyError::KernelEntryUserAccessible)
+        );
+        assert_eq!(pool.memory().read_entry(user_root, 256), Some(0));
+        assert_eq!(pool.owned_frame_count(), 2);
+
+        // SAFETY: Both roots remain private and inactive.
+        unsafe { pool.destroy_address_space(user_root, 48) }.unwrap();
+        unsafe { pool.destroy_address_space(kernel_root, 48) }.unwrap();
+        assert_eq!(pool.owned_frame_count(), 0);
+        assert_eq!(pool.pmm.free_frames(), 4);
+    }
+
+    #[test]
     fn hhdm_page_table_accessor_rejects_invalid_physical_width() {
         // SAFETY: Constructor validation returns before the accessor can be used.
         assert!(matches!(
