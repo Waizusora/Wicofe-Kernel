@@ -398,8 +398,8 @@ unsafe extern "C" {
 /// must identify a present 64-bit code segment. The kernel image and this
 /// static IDT must be mapped executable/readable respectively. The current
 /// stack must be valid for fatal exception entry. This baseline does not use
-/// IST; a later TSS stage must provide a dedicated double-fault stack before
-/// relying on recovery from stack-corruption faults.
+/// IST1 is reserved for double fault and must be configured by the TSS before
+/// this IDT is loaded.
 #[cfg(target_os = "none")]
 pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
     let code_selector: u16;
@@ -457,7 +457,8 @@ pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
         } else {
             fallback_handler
         };
-        idt.set_handler(vector as u8, handler, code_selector, 0, 0)?;
+        let ist = if vector == 8 { crate::arch::x86_64::gdt::DOUBLE_FAULT_IST } else { 0 };
+        idt.set_handler(vector as u8, handler, code_selector, 0, ist)?;
     }
 
     // SAFETY: The caller guarantees the GDT selector, mappings, stack, and
