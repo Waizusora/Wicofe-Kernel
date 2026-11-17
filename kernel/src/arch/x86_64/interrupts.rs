@@ -907,7 +907,7 @@ pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
             exception_handlers[vector]
         } else {
             // SAFETY: vector is in 32..256, so the table index is in 0..224.
-            unsafe { interrupt_handlers.read().add(vector - 32).read() }
+            unsafe { interrupt_handlers.cast::<u64>().add(vector - 32).read() }
         };
         let ist = if vector == 8 {
             crate::arch::x86_64::gdt::DOUBLE_FAULT_IST
