@@ -103,9 +103,7 @@ impl InterruptDescriptorTable {
         privilege_level: u8,
         ist_index: u8,
     ) -> Result<(), IdtError> {
-        if handler_address == 0
-            || !is_canonical_48(handler_address)
-        {
+        if handler_address == 0 || !is_canonical_48(handler_address) {
             return Err(IdtError::InvalidHandlerAddress);
         }
         if code_selector == 0 {
@@ -122,12 +120,8 @@ impl InterruptDescriptorTable {
         if !slot.is_present() {
             self.populated += 1;
         }
-        *slot = IdtEntry::interrupt_gate(
-            handler_address,
-            code_selector,
-            privilege_level,
-            ist_index,
-        );
+        *slot =
+            IdtEntry::interrupt_gate(handler_address, code_selector, privilege_level, ist_index);
         Ok(())
     }
 
