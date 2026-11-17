@@ -187,6 +187,36 @@ const fn is_canonical_48(address: u64) -> bool {
     }
 }
 
+/// Register and hardware frame layout produced by `wicofe_exception_common`.
+///
+/// The assembly saves GPRs in reverse order, then the normalized vector and
+/// error code, followed by the CPU-pushed instruction frame. This structure
+/// describes same-privilege exceptions; RSP/SS are not present in that case.
+#[cfg(target_os = "none")]
+#[repr(C)]
+struct ExceptionStackFrame {
+    r15: u64,
+    r14: u64,
+    r13: u64,
+    r12: u64,
+    r11: u64,
+    r10: u64,
+    r9: u64,
+    r8: u64,
+    rdi: u64,
+    rsi: u64,
+    rbp: u64,
+    rdx: u64,
+    rcx: u64,
+    rbx: u64,
+    rax: u64,
+    vector: u64,
+    error_code: u64,
+    instruction_pointer: u64,
+    code_segment: u64,
+    rflags: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -931,8 +961,33 @@ pub extern "C" fn wicofe_exception_dispatch(
     error_code: u64,
     registers: *const u64,
 ) -> ! {
-    // SAFETY: The assembly entry has pushed the normalized vector/error pair
-    // and all GPRs. The saved instruction pointer is the eighteenth u64.
-    let instruction_pointer = unsafe { *registers.add(17) };
-    panic!("CPU exception: vector={vector}, error={error_code:#x}, rip={instruction_pointer:#x}");
+    // SAFETY: The assembly entry has pushed all fields in the exact order
+    // represented by ExceptionStackFrame. The pointer is valid for this
+    // synchronous, non-returning dispatch path.
+    let frame = unsafe { &*registers.cast::<ExceptionStackFrame>() };
+    debug_assert_eq!(frame.vector, vector);
+    debug_assert_eq!(frame.error_code, error_code);
+
+    // CR2 is meaningful for #PF only; reading it for other exceptions would
+    // report stale state and make the diagnostic misleading.
+    if vector == 14 {
+        let fault_address: u64;
+        // SAFETY: Exception dispatch executes at ring 0 on x86-64.
+        unsafe {
+            asm!(
+                "mov {}, cr2",
+                out(reg) fault_address,
+                options(nomem, nostack, preserves_flags)
+            );
+        }
+        panic!(
+            "CPU exception: vector={vector}, error={error_code:#x}, rip={:#x}, cr2={fault_address:#x}",
+            frame.instruction_pointer
+        );
+    }
+
+    panic!(
+        "CPU exception: vector={vector}, error={error_code:#x}, rip={:#x}",
+        frame.instruction_pointer
+    );
 }
