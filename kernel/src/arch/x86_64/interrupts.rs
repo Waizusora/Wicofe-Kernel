@@ -457,7 +457,11 @@ pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
         } else {
             fallback_handler
         };
-        let ist = if vector == 8 { crate::arch::x86_64::gdt::DOUBLE_FAULT_IST } else { 0 };
+        let ist = if vector == 8 {
+            crate::arch::x86_64::gdt::DOUBLE_FAULT_IST
+        } else {
+            0
+        };
         idt.set_handler(vector as u8, handler, code_selector, 0, ist)?;
     }
 
