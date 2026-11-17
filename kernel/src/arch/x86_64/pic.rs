@@ -129,6 +129,22 @@ pub fn set_irq_mask_with_io<I: PicIo>(
     })
 }
 
+/// Read the current master/slave masks without changing controller state.
+pub fn read_masks_with_io<I: PicIo>(io: &mut I) -> PicMasks {
+    PicMasks {
+        master: io.read_u8(MASTER_DATA),
+        slave: io.read_u8(SLAVE_DATA),
+    }
+}
+
+#[cfg(target_os = "none")]
+/// Read current legacy PIC masks.
+///
+/// # Safety
+/// Must execute at ring 0 with exclusive PIC access and CPU interrupts disabled.
+pub unsafe fn read_masks() -> PicMasks {
+    read_masks_with_io(&mut X86PortIo)
+}
 /// Check the in-service register before invoking an IRQ handler.
 /// Spurious IRQ15 requires a master cascade EOI; real IRQs remain in service.
 pub fn is_spurious_irq_with_io<I: PicIo>(io: &mut I, irq: u8) -> Result<bool, InvalidIrq> {
