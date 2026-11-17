@@ -213,6 +213,20 @@ fn verify_pmm_alloc_free(pmm: &mut Pmm<'_>) -> bool {
 pub extern "C" fn wicofe_bootstrap() -> ! {
     early_serial_init();
     early_serial_write_str("WICOFE: BOOTSTRAP_ENTERED\n");
+
+    #[cfg(target_arch = "x86_64")]
+    {
+        // SAFETY: _start entered at ring 0 with interrupts disabled. Limine's
+        // active GDT/CS and inherited kernel mappings remain in force here.
+        if unsafe { crate::arch::x86_64::interrupts::initialize_and_load() }.is_err() {
+            early_serial_write_str("WICOFE: IDT_INIT_FAILED\\n");
+            loop {
+                // SAFETY: Initialization failure is terminal; IF remains clear.
+                unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)) };
+            }
+        }
+        early_serial_write_str("WICOFE: IDT_READY\\n");
+    }
     // Resolve linker bounds without reading the bytes at either symbol.
     // SAFETY: The final linker scripts define both symbols as image boundaries.
     let (linker_start, linker_end) = (
