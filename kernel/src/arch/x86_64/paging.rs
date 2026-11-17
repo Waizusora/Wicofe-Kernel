@@ -7,9 +7,7 @@
 
 use crate::memory::{PhysAddr, VirtAddr};
 use crate::pmm::{Pmm, PmmError};
-use crate::vmm::{
-    AddressGeometry, AddressSpace, MappingRequest, PageFlags, PageSize, VmmError,
-};
+use crate::vmm::{AddressGeometry, AddressSpace, MappingRequest, PageFlags, PageSize, VmmError};
 
 const PRESENT: u64 = 1 << 0;
 const WRITABLE: u64 = 1 << 1;
@@ -652,7 +650,11 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
         physical_address_bits: u8,
         nx_enabled: bool,
     ) -> Result<(), PageTableHierarchyError> {
-        if !self.owned.iter().any(|slot| *slot == Some(address_space.root())) {
+        if !self
+            .owned
+            .iter()
+            .any(|slot| *slot == Some(address_space.root()))
+        {
             return Err(PageTableHierarchyError::Pool(
                 PageTablePoolError::FrameNotOwned,
             ));
@@ -1176,8 +1178,7 @@ mod tests {
         let mut pool = unsafe { PageTableFramePool::<5>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
         let root = pool.create_address_space().unwrap();
         let address_space =
-            AddressSpace::new(root, crate::vmm::AddressSpaceKind::Kernel, X86_64_4_LEVEL)
-                .unwrap();
+            AddressSpace::new(root, crate::vmm::AddressSpaceKind::Kernel, X86_64_4_LEVEL).unwrap();
         let virtual_range = crate::vmm::VirtRange::from_start_len(
             VirtAddr::new(0xffff_8000_0000_0000),
             NonZeroU64::new(4096).unwrap(),
@@ -1211,16 +1212,10 @@ mod tests {
         );
 
         let invalid_request = MappingRequest::new(
-            VirtRange::from_start_len(
-                VirtAddr::new(0x4000),
-                NonZeroU64::new(4096).unwrap(),
-            )
-            .unwrap(),
-            PhysRange::from_start_len(
-                PhysAddr::new(0xa000),
-                NonZeroU64::new(4096).unwrap(),
-            )
-            .unwrap(),
+            VirtRange::from_start_len(VirtAddr::new(0x4000), NonZeroU64::new(4096).unwrap())
+                .unwrap(),
+            PhysRange::from_start_len(PhysAddr::new(0xa000), NonZeroU64::new(4096).unwrap())
+                .unwrap(),
             PageSize::Size4KiB,
             PageFlags::KERNEL_WRITABLE,
             X86_64_4_LEVEL,
