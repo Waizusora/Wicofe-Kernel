@@ -242,7 +242,6 @@ mod tests {
     }
 }
 
-
 /// Fatal exception entry and diagnostic dispatch support.
 ///
 /// The stubs normalize CPU-pushed error codes and terminate through the Rust
@@ -352,7 +351,5 @@ pub extern "C" fn wicofe_exception_dispatch(
     // SAFETY: The assembly entry has pushed the normalized vector/error pair
     // and all GPRs. The saved instruction pointer is the eighteenth u64.
     let instruction_pointer = unsafe { *registers.add(17) };
-    panic!(
-        "CPU exception: vector={vector}, error={error_code:#x}, rip={instruction_pointer:#x}"
-    );
+    panic!("CPU exception: vector={vector}, error={error_code:#x}, rip={instruction_pointer:#x}");
 }
