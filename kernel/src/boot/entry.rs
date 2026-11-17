@@ -281,6 +281,14 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
                         early_serial_write_str("WICOFE: PMM_ALLOC_FREE_FAILED\n");
                     } else {
                         early_serial_write_str("WICOFE: PMM_ALLOC_FREE_OK\n");
+                        #[cfg(feature = "exception-smoke-int3")]
+                        {
+                            early_serial_write_str("WICOFE: EXCEPTION_SMOKE_INT3\n");
+                            // SAFETY: This build-only test intentionally raises #BP
+                            // after the IDT and PMM are initialized. The fatal
+                            // exception dispatcher must never return from this trap.
+                            unsafe { core::arch::asm!("int3", options(nomem, nostack)); }
+                        }
                         // Keep allocator metadata alive. General allocation remains
                         // disabled until VMM and diagnostics are initialized.
                         loop {

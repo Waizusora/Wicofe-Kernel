@@ -147,6 +147,27 @@ jobs:
             echo "Kernel reported a bootstrap failure"
             exit 1
           fi
+      - name: Build x86-64 exception smoke-test kernel
+        run: cargo build -p wicofe-kernel --features kernel-image,exception-smoke-int3 --bin wicofe-kernel --target x86_64-unknown-none
+      - name: Build exception smoke-test ISO
+        run: scripts/build_limine_iso.sh target/wicofe-x86_64-int3-smoke.iso
+      - name: Verify breakpoint exception path in QEMU
+        run: |
+          set +e
+          timeout 15s qemu-system-x86_64 \
+            -machine q35 -m 512M -cdrom target/wicofe-x86_64-int3-smoke.iso -boot d \
+            -display none -serial file:target/qemu-int3-serial.log \
+            -no-reboot -no-shutdown
+          qemu_status=$?
+          set -e
+          if [[ "$qemu_status" -ne 124 ]]; then
+            echo "QEMU did not remain halted in the fatal exception path (status $qemu_status)"
+            cat target/qemu-int3-serial.log || true
+            exit 1
+          fi
+          cat target/qemu-int3-serial.log
+          grep -Fq "WICOFE: EXCEPTION_SMOKE_INT3" target/qemu-int3-serial.log
+          grep -Fq "CPU exception: vector=3" target/qemu-int3-serial.log
       - name: Check AArch64 target
         run: cargo check --workspace --target aarch64-unknown-none
       - name: Upload kernel build and license evidence

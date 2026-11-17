@@ -20,6 +20,7 @@ bench = false
 [features]
 default = []
 kernel-image = []
+exception-smoke-int3 = []
 
 [lints]
 workspace = true
