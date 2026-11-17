@@ -7,7 +7,9 @@
 
 use crate::memory::{PhysAddr, VirtAddr};
 use crate::pmm::{Pmm, PmmError};
-use crate::vmm::{AddressGeometry, PageFlags, PageSize};
+use crate::vmm::{
+    AddressGeometry, AddressSpace, MappingRequest, PageFlags, PageSize, VmmError,
+};
 
 const PRESENT: u64 = 1 << 0;
 const WRITABLE: u64 = 1 << 1;
@@ -278,6 +280,8 @@ pub enum PageTableHierarchyError {
     Paging(X86PagingError),
     Pool(PageTablePoolError),
     AliasedOwnedTable,
+    AddressSpaceRootMismatch,
+    Policy(VmmError),
 }
 
 /// Owns a bounded set of zero-initialized page-table frames from the PMM.
@@ -629,6 +633,52 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
             }
         }
         result
+    }
+
+    /// Map one validated leaf through an address-space policy descriptor.
+    ///
+    /// The request must describe exactly one hardware page. The descriptor
+    /// root must be owned by this pool. Policy validation happens before any
+    /// page-table allocation or mutation.
+    ///
+    /// # Safety
+    /// The address space must remain inactive and inaccessible to every CPU
+    /// until construction is complete. No TLB entry or page-table walker may
+    /// reference this root during the operation.
+    pub unsafe fn map_address_space_leaf(
+        &mut self,
+        address_space: AddressSpace,
+        request: MappingRequest,
+        physical_address_bits: u8,
+        nx_enabled: bool,
+    ) -> Result<(), PageTableHierarchyError> {
+        if !self.owned.iter().any(|slot| *slot == Some(address_space.root())) {
+            return Err(PageTableHierarchyError::Pool(
+                PageTablePoolError::FrameNotOwned,
+            ));
+        }
+        if request.virtual_range().len() != request.page_size().bytes().get() {
+            return Err(PageTableHierarchyError::Policy(
+                VmmError::MappingMustContainSinglePage,
+            ));
+        }
+        address_space
+            .validate_mapping(request)
+            .map_err(PageTableHierarchyError::Policy)?;
+
+        // SAFETY: The caller of this method provides the inactive-root
+        // guarantee required by map_leaf_with_tables.
+        unsafe {
+            self.map_leaf_with_tables(
+                address_space.root(),
+                request.virtual_range().start(),
+                request.physical_range().start(),
+                request.page_size(),
+                request.flags(),
+                physical_address_bits,
+                nx_enabled,
+            )
+        }
     }
 
     /// Remove a leaf mapping and reclaim empty intermediate tables owned by this pool.
