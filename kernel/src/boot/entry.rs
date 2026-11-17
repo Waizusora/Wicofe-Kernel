@@ -206,6 +206,46 @@ fn verify_pmm_alloc_free(pmm: &mut Pmm<'_>) -> bool {
     metadata_valid && released && pmm.free_frames() == free_before && pmm.allocated_frames() == 0
 }
 
+#[cfg(feature = "irq-smoke-pit")]
+static IRQ_SMOKE_TICKS: core::sync::atomic::AtomicUsize =
+    core::sync::atomic::AtomicUsize::new(0);
+
+#[cfg(feature = "irq-smoke-pit")]
+extern "C" fn irq_smoke_pit_handler(_: &mut crate::arch::x86_64::irq::IrqStackFrame) {
+    IRQ_SMOKE_TICKS.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(feature = "irq-smoke-pit")]
+fn verify_irq_dispatch_with_pit() -> bool {
+    use core::sync::atomic::Ordering;
+
+    if crate::arch::x86_64::irq::register_handler(0, irq_smoke_pit_handler).is_err() {
+        return false;
+    }
+    // SAFETY: Bootstrap runs at ring 0 with IF clear and owns PIT programming.
+    if unsafe { crate::arch::x86_64::pit::initialize_periodic(100) }.is_err() {
+        return false;
+    }
+    // SAFETY: IRQ0 handler is installed, IDT is loaded, and IF remains clear.
+    if unsafe { crate::arch::x86_64::irq::unmask(0) }.is_err() {
+        return false;
+    }
+
+    // STI is confined to this build-only smoke test. A bounded polling loop
+    // prevents a missing IRQ from leaving QEMU blocked forever in HLT.
+    unsafe { core::arch::asm!("sti", options(nomem, nostack)) };
+    for _ in 0..100_000_000 {
+        if IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0 {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    // SAFETY: Disable interrupts before changing the PIC mask.
+    unsafe { core::arch::asm!("cli", options(nomem, nostack)) };
+    // SAFETY: IF is clear and bootstrap exclusively owns the PIC.
+    let _ = unsafe { crate::arch::x86_64::pic::set_irq_mask(0, true) };
+    IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0
+}
 /// Rust entry called by the architecture-specific _start trampoline.
 ///
 /// This function must never return to Limine's invalid return address.
@@ -293,6 +333,18 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
                         early_serial_write_str("WICOFE: PMM_ALLOC_FREE_FAILED\n");
                     } else {
                         early_serial_write_str("WICOFE: PMM_ALLOC_FREE_OK\n");
+                        #[cfg(feature = "irq-smoke-pit")]
+                        {
+                            if verify_irq_dispatch_with_pit() {
+                                early_serial_write_str("WICOFE: IRQ_PIT_SMOKE_OK\n");
+                            } else {
+                                early_serial_write_str("WICOFE: IRQ_PIT_SMOKE_FAILED\n");
+                                loop {
+                                    // SAFETY: A failed interrupt smoke test is terminal.
+                                    unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)) };
+                                }
+                            }
+                        }
                         #[cfg(feature = "exception-smoke-int3")]
                         {
                             early_serial_write_str("WICOFE: EXCEPTION_SMOKE_INT3\n");
