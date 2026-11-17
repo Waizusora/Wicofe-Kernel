@@ -159,15 +159,18 @@ jobs:
           timeout 20s qemu-system-x86_64 \
             -machine q35 -m 512M -cdrom target/wicofe-x86_64-irq-pit-smoke.iso -boot d \
             -display none -serial file:target/qemu-irq-pit-serial.log \
+            -d int,cpu_reset,guest_errors -D target/qemu-irq-pit-debug.log \
             -no-reboot -no-shutdown
           qemu_status=$?
           set -e
           if [[ "$qemu_status" -ne 124 ]]; then
             echo "QEMU did not remain in the kernel after the IRQ smoke test (status $qemu_status)"
             cat target/qemu-irq-pit-serial.log || true
+            cat target/qemu-irq-pit-debug.log || true
             exit 1
           fi
           cat target/qemu-irq-pit-serial.log
+          grep -Fq "WICOFE: BOOTSTRAP_ENTERED" target/qemu-irq-pit-serial.log
           grep -Fq "WICOFE: IRQ_PIT_SMOKE_OK" target/qemu-irq-pit-serial.log
           if grep -Fq "WICOFE: IRQ_PIT_SMOKE_FAILED" target/qemu-irq-pit-serial.log; then
             echo "PIT IRQ smoke test failed"
