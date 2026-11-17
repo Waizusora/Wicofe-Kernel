@@ -1145,6 +1145,99 @@ mod tests {
     }
 
     #[test]
+    fn address_space_mapper_enforces_policy_before_allocating_tables() {
+        use crate::boot::EarlyMemoryRange;
+        use crate::memory::{PhysRange, VirtRange};
+        use crate::pmm::FrameMetadata;
+        use core::num::NonZeroU64;
+
+        #[repr(align(4096))]
+        struct Backing([u8; 6 * 4096]);
+
+        let mut backing = Backing([0; 6 * 4096]);
+        let physical_base = 0x1000u64;
+        let hhdm_offset = (backing.0.as_mut_ptr() as u64) - physical_base;
+        let ranges = [EarlyMemoryRange {
+            base: physical_base,
+            length: 6 * 4096,
+        }];
+        let mut bitmap = [0u8; 1];
+        let mut metadata = [FrameMetadata::default(); 6];
+        let mut pmm = Pmm::new(
+            &ranges,
+            NonZeroU64::new(4096).unwrap(),
+            &mut bitmap,
+            &mut metadata,
+        )
+        .unwrap();
+
+        // SAFETY: The backing buffer is a writable synthetic HHDM and all
+        // page-table operations remain single-threaded with an inactive root.
+        let mut pool = unsafe { PageTableFramePool::<5>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
+        let root = pool.create_address_space().unwrap();
+        let address_space =
+            AddressSpace::new(root, crate::vmm::AddressSpaceKind::Kernel, X86_64_4_LEVEL)
+                .unwrap();
+        let virtual_range = crate::vmm::VirtRange::from_start_len(
+            VirtAddr::new(0xffff_8000_0000_0000),
+            NonZeroU64::new(4096).unwrap(),
+        )
+        .unwrap();
+        let physical_range =
+            PhysRange::from_start_len(PhysAddr::new(0x9000), NonZeroU64::new(4096).unwrap())
+                .unwrap();
+        let valid_request = MappingRequest::new(
+            virtual_range,
+            physical_range,
+            PageSize::Size4KiB,
+            PageFlags::KERNEL_WRITABLE,
+            X86_64_4_LEVEL,
+        )
+        .unwrap();
+
+        // SAFETY: The newly allocated root is private and remains inactive.
+        unsafe { pool.map_address_space_leaf(address_space, valid_request, 48, true) }.unwrap();
+        assert_eq!(pool.owned_frame_count(), 4);
+        assert_eq!(
+            translate(
+                pool.memory(),
+                root,
+                VirtAddr::new(0xffff_8000_0000_0123),
+                48,
+            )
+            .unwrap()
+            .physical_address,
+            PhysAddr::new(0x9123)
+        );
+
+        let invalid_request = MappingRequest::new(
+            VirtRange::from_start_len(
+                VirtAddr::new(0x4000),
+                NonZeroU64::new(4096).unwrap(),
+            )
+            .unwrap(),
+            PhysRange::from_start_len(
+                PhysAddr::new(0xa000),
+                NonZeroU64::new(4096).unwrap(),
+            )
+            .unwrap(),
+            PageSize::Size4KiB,
+            PageFlags::KERNEL_WRITABLE,
+            X86_64_4_LEVEL,
+        )
+        .unwrap();
+        let owned_before = pool.owned_frame_count();
+        // SAFETY: Policy rejection occurs before touching the inactive root.
+        assert_eq!(
+            unsafe { pool.map_address_space_leaf(address_space, invalid_request, 48, true) },
+            Err(PageTableHierarchyError::Policy(
+                VmmError::MappingOutsideAddressSpace
+            ))
+        );
+        assert_eq!(pool.owned_frame_count(), owned_before);
+    }
+
+    #[test]
     fn hhdm_page_table_accessor_rejects_invalid_table_addresses_without_dereferencing() {
         // SAFETY: This test only exercises rejected inputs; no table memory is accessed.
         let memory = unsafe { HhdmPageTableMemory::new(0xffff_8000_0000_0000, 32) }.unwrap();
