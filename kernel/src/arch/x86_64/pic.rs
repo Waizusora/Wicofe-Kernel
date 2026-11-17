@@ -130,31 +130,44 @@ pub fn set_irq_mask_with_io<I: PicIo>(
 }
 
 /// Send EOI for a real IRQ, including correct spurious IRQ7/IRQ15 handling.
+/// Check the in-service register before invoking an IRQ handler.
+/// Spurious IRQ15 requires a master cascade EOI; real IRQs remain in service.
+pub fn is_spurious_irq_with_io<I: PicIo>(
+    io: &mut I,
+    irq: u8,
+) -> Result<bool, InvalidIrq> {
+    if irq >= IRQ_COUNT { return Err(InvalidIrq(irq)); }
+    if irq == 7 {
+        io.write_u8(MASTER_COMMAND, OCW3_READ_ISR);
+        return Ok(io.read_u8(MASTER_COMMAND) & 0x80 == 0);
+    }
+    if irq == 15 {
+        io.write_u8(SLAVE_COMMAND, OCW3_READ_ISR);
+        if io.read_u8(SLAVE_COMMAND) & 0x80 == 0 {
+            io.write_u8(MASTER_COMMAND, EOI);
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Send EOI after a real IRQ handler has completed.
+pub fn send_eoi_with_io<I: PicIo>(io: &mut I, irq: u8) -> Result<(), InvalidIrq> {
+    if irq >= IRQ_COUNT { return Err(InvalidIrq(irq)); }
+    if irq >= 8 { io.write_u8(SLAVE_COMMAND, EOI); }
+    io.write_u8(MASTER_COMMAND, EOI);
+    Ok(())
+}
+
+/// Send EOI for a real IRQ, including correct spurious IRQ7/IRQ15 handling.
 pub fn acknowledge_irq_with_io<I: PicIo>(
     io: &mut I,
     irq: u8,
 ) -> Result<IrqAcknowledge, InvalidIrq> {
-    if irq >= IRQ_COUNT {
-        return Err(InvalidIrq(irq));
+    if is_spurious_irq_with_io(io, irq)? {
+        return Ok(IrqAcknowledge::Spurious);
     }
-
-    if irq == 7 {
-        io.write_u8(MASTER_COMMAND, OCW3_READ_ISR);
-        if io.read_u8(MASTER_COMMAND) & 0x80 == 0 {
-            return Ok(IrqAcknowledge::Spurious);
-        }
-    } else if irq == 15 {
-        io.write_u8(SLAVE_COMMAND, OCW3_READ_ISR);
-        if io.read_u8(SLAVE_COMMAND) & 0x80 == 0 {
-            io.write_u8(MASTER_COMMAND, EOI);
-            return Ok(IrqAcknowledge::Spurious);
-        }
-    }
-
-    if irq >= 8 {
-        io.write_u8(SLAVE_COMMAND, EOI);
-    }
-    io.write_u8(MASTER_COMMAND, EOI);
+    send_eoi_with_io(io, irq)?;
     Ok(IrqAcknowledge::Acknowledged)
 }
 
@@ -208,6 +221,24 @@ pub unsafe fn initialize() -> PicMasks {
 #[cfg(target_os = "none")]
 pub unsafe fn set_irq_mask(irq: u8, masked: bool) -> Result<PicMasks, InvalidIrq> {
     set_irq_mask_with_io(&mut X86PortIo, irq, masked)
+}
+
+/// Check whether an IRQ7/IRQ15 delivery is spurious before calling its handler.
+///
+/// # Safety
+/// Must execute at ring 0 with serialized PIC access and interrupts disabled.
+#[cfg(target_os = "none")]
+pub unsafe fn is_spurious_irq(irq: u8) -> Result<bool, InvalidIrq> {
+    is_spurious_irq_with_io(&mut X86PortIo, irq)
+}
+
+/// Send EOI after a real IRQ handler has completed.
+///
+/// # Safety
+/// Must execute at ring 0 from a context that owns/serializes PIC access.
+#[cfg(target_os = "none")]
+pub unsafe fn send_eoi(irq: u8) -> Result<(), InvalidIrq> {
+    send_eoi_with_io(&mut X86PortIo, irq)
 }
 
 /// Acknowledge one legacy IRQ on x86-64.
