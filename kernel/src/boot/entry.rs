@@ -298,6 +298,16 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
                                 core::arch::asm!("ud2");
                             }
                         }
+                        #[cfg(feature = "exception-smoke-double-fault")]
+                        {
+                            early_serial_write_str("WICOFE: EXCEPTION_SMOKE_DOUBLE_FAULT\\n");
+                            // SAFETY: This dedicated smoke build intentionally
+                            // corrupts #UD/#GP selectors to force escalation to #DF.
+                            unsafe {
+                                crate::arch::x86_64::interrupts::prepare_double_fault_smoke();
+                                core::arch::asm!("ud2");
+                            }
+                        }
                         #[cfg(feature = "exception-smoke-page-fault")]
                         {
                             const UNMAPPED_TEST_ADDRESS: usize = 0x0000_4000_0000_0000;
