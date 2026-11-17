@@ -1147,7 +1147,7 @@ mod tests {
     #[test]
     fn address_space_mapper_enforces_policy_before_allocating_tables() {
         use crate::boot::EarlyMemoryRange;
-        use crate::memory::{PhysRange, VirtRange};
+        use crate::memory::PhysRange;
         use crate::pmm::FrameMetadata;
         use core::num::NonZeroU64;
 
