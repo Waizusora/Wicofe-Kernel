@@ -246,6 +246,7 @@ fn verify_irq_dispatch_with_pit() -> bool {
     let _ = unsafe { crate::arch::x86_64::pic::set_irq_mask(0, true) };
     IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0
 }
+
 /// Rust entry called by the architecture-specific _start trampoline.
 ///
 /// This function must never return to Limine's invalid return address.
