@@ -82,8 +82,7 @@ static mut BOOT_GDT: [u64; 5] = [GDT_NULL, GDT_KERNEL_CODE, GDT_KERNEL_DATA, 0, 
 static mut BOOT_TSS: TaskStateSegment = TaskStateSegment::new();
 
 #[cfg(target_os = "none")]
-static mut DOUBLE_FAULT_STACK: DoubleFaultStack =
-    DoubleFaultStack([0; DOUBLE_FAULT_STACK_SIZE]);
+static mut DOUBLE_FAULT_STACK: DoubleFaultStack = DoubleFaultStack([0; DOUBLE_FAULT_STACK_SIZE]);
 
 /// Install the bootstrap GDT, load the TSS, and configure IST1.
 ///
