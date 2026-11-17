@@ -279,6 +279,9 @@ pub enum PageTableHierarchyError {
     Pool(PageTablePoolError),
     AliasedOwnedTable,
     AddressSpaceRootMismatch,
+    KernelRootMustDiffer,
+    KernelEntryUserAccessible,
+    KernelHalfAlreadyPopulated,
     Policy(VmmError),
 }
 
@@ -322,6 +325,89 @@ impl<'p, 'r, const CAPACITY: usize> PageTableFramePool<'p, 'r, CAPACITY> {
     /// required by the execution environment.
     pub fn create_address_space(&mut self) -> Result<PhysAddr, PageTablePoolError> {
         self.allocate_zeroed_table()
+    }
+
+    /// Share the supervisor-only upper-half PML4 entries with a user root.
+    ///
+    /// The destination receives borrowed references to the source's existing
+    /// kernel page-table branches. No table frames are copied or added to this
+    /// pool's ownership set. The source hierarchy must outlive every
+    /// destination root that uses it.
+    ///
+    /// All source entries are validated before the destination is modified.
+    /// A present source PML4 entry with USER set is rejected: clearing USER at
+    /// this level is necessary to ensure that no descendant can become
+    /// user-accessible through the shared branch.
+    ///
+    /// # Safety
+    /// Both roots and every source table reachable through the upper-half
+    /// entries must remain mapped and stable for the duration of this call.
+    /// The destination root must be inactive and inaccessible to all CPUs.
+    /// The source kernel hierarchy must remain alive and must not be reclaimed
+    /// while any destination root retains these borrowed entries. Callers
+    /// must serialize page-table mutation and arrange TLB maintenance before
+    /// publishing or changing any affected address space.
+    pub unsafe fn share_kernel_half(
+        &mut self,
+        kernel_root: PhysAddr,
+        user_root: PhysAddr,
+        physical_address_bits: u8,
+    ) -> Result<usize, PageTableHierarchyError> {
+        if kernel_root == user_root {
+            return Err(PageTableHierarchyError::KernelRootMustDiffer);
+        }
+        if !self.owned.iter().any(|slot| *slot == Some(user_root)) {
+            return Err(PageTableHierarchyError::Pool(
+                PageTablePoolError::FrameNotOwned,
+            ));
+        }
+
+        let mask = physical_address_mask(physical_address_bits)
+            .map_err(PageTableHierarchyError::Paging)?;
+        for root in [kernel_root, user_root] {
+            if root.get() & PAGE_OFFSET_MASK != 0 || root.get() & !mask != 0 {
+                return Err(PageTableHierarchyError::Paging(
+                    X86PagingError::InvalidRootTable,
+                ));
+            }
+        }
+
+        // Preflight the entire upper half. Do not partially populate the
+        // destination if a source entry is unsuitable or a slot is occupied.
+        let mut present_count = 0usize;
+        for index in 256..512 {
+            let source = read_table_entry(&self.memory, kernel_root, index)
+                .map_err(PageTableHierarchyError::Paging)?;
+            let destination = read_table_entry(&self.memory, user_root, index)
+                .map_err(PageTableHierarchyError::Paging)?;
+            if destination & PRESENT != 0 {
+                return Err(PageTableHierarchyError::KernelHalfAlreadyPopulated);
+            }
+            if source & PRESENT != 0 {
+                if source & USER != 0 {
+                    return Err(PageTableHierarchyError::KernelEntryUserAccessible);
+                }
+                present_count += 1;
+            }
+        }
+
+        for index in 256..512 {
+            let source = read_table_entry(&self.memory, kernel_root, index)
+                .map_err(PageTableHierarchyError::Paging)?;
+            if source & PRESENT != 0 && !self.memory.write_entry(user_root, index, source) {
+                // The preflight guarantees valid HHDM pointers under the
+                // constructor contract; retain an explicit error if that
+                // assumption is violated by the memory adapter.
+                for rollback in 256..index {
+                    let _ = self.memory.write_entry(user_root, rollback, 0);
+                }
+                return Err(PageTableHierarchyError::Paging(
+                    X86PagingError::MemoryAccessFailed,
+                ));
+            }
+        }
+
+        Ok(present_count)
     }
 
     /// Destroy an inactive address space and release its owned page-table tree.
