@@ -1,8 +1,8 @@
 //! x86-64 Interrupt Descriptor Table construction and activation.
 //!
-//! This module builds a complete 256-entry IDT but does not install handlers
-//! or activate the table during boot. Handler addresses must point to assembly
-//! entry stubs that obey the x86-64 interrupt stack/return ABI.
+//! This module builds and loads a complete 256-entry fail-stop IDT during
+//! bootstrap. Every vector points to an assembly entry stub that normalizes
+//! its stack frame and transfers control to the fatal Rust dispatcher.
 
 use core::arch::asm;
 use core::mem::size_of;
@@ -887,9 +887,8 @@ unsafe extern "C" {
 /// The currently loaded GDT must remain active and its current CS selector
 /// must identify a present 64-bit code segment. The kernel image and this
 /// static IDT must be mapped executable/readable respectively. The current
-/// stack must be valid for fatal exception entry. This baseline does not use
-/// IST1 is reserved for double fault and must be configured by the TSS before
-/// this IDT is loaded.
+/// stack must be valid for fatal exception entry. IST1 is reserved for double
+/// fault and must be configured by the TSS before this IDT is loaded.
 #[cfg(target_os = "none")]
 pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
     let code_selector: u16;
