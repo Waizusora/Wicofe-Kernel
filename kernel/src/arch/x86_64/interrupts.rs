@@ -1,8 +1,8 @@
 //! x86-64 Interrupt Descriptor Table construction and activation.
 //!
-//! This module builds and loads a complete 256-entry fail-stop IDT during
-//! bootstrap. Every vector points to an assembly entry stub that normalizes
-//! its stack frame and transfers control to the fatal Rust dispatcher.
+//! This module builds and loads a complete 256-entry IDT during bootstrap.
+//! CPU exceptions remain fail-stop; legacy PIC IRQs have a separate returning
+//! assembly path that dispatches registered handlers and returns with IRETQ.
 
 use core::arch::asm;
 use core::mem::size_of;
