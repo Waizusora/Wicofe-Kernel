@@ -287,7 +287,7 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
                             // SAFETY: This build-only test intentionally raises #BP
                             // after the IDT and PMM are initialized. The fatal
                             // exception dispatcher must never return from this trap.
-                            unsafe { core::arch::asm!("int3", options(nomem, nostack)); }
+                            unsafe { core::arch::asm!("int3"); }
                         }
                         // Keep allocator metadata alive. General allocation remains
                         // disabled until VMM and diagnostics are initialized.
