@@ -241,3 +241,118 @@ mod tests {
         );
     }
 }
+
+
+/// Fatal exception entry and diagnostic dispatch support.
+///
+/// The stubs normalize CPU-pushed error codes and terminate through the Rust
+/// dispatcher. They are not installed into the IDT automatically.
+#[cfg(target_os = "none")]
+core::arch::global_asm!(
+    r#"
+    .section .text
+    .balign 16
+    .macro WICOFE_ISR_NOERR number
+    .global wicofe_exception_\number
+    .type wicofe_exception_\number,@function
+wicofe_exception_\number:
+    pushq $0
+    pushq $\number
+    jmp wicofe_exception_common
+    .size wicofe_exception_\number, . - wicofe_exception_\number
+    .endm
+
+    .macro WICOFE_ISR_ERR number
+    .global wicofe_exception_\number
+    .type wicofe_exception_\number,@function
+wicofe_exception_\number:
+    pushq $\number
+    jmp wicofe_exception_common
+    .size wicofe_exception_\number, . - wicofe_exception_\number
+    .endm
+
+    .global wicofe_exception_common
+    .type wicofe_exception_common,@function
+wicofe_exception_common:
+    cld
+    pushq %rax
+    pushq %rbx
+    pushq %rcx
+    pushq %rdx
+    pushq %rbp
+    pushq %rsi
+    pushq %rdi
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    pushq %r11
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
+
+    movq 120(%rsp), %rdi
+    movq 128(%rsp), %rsi
+    movq %rsp, %rdx
+    andq $-16, %rsp
+    call wicofe_exception_dispatch
+1:
+    cli
+    hlt
+    jmp 1b
+    .size wicofe_exception_common, . - wicofe_exception_common
+
+    WICOFE_ISR_NOERR 0
+    WICOFE_ISR_NOERR 1
+    WICOFE_ISR_NOERR 2
+    WICOFE_ISR_NOERR 3
+    WICOFE_ISR_NOERR 4
+    WICOFE_ISR_NOERR 5
+    WICOFE_ISR_NOERR 6
+    WICOFE_ISR_NOERR 7
+    WICOFE_ISR_ERR   8
+    WICOFE_ISR_NOERR 9
+    WICOFE_ISR_ERR   10
+    WICOFE_ISR_ERR   11
+    WICOFE_ISR_ERR   12
+    WICOFE_ISR_ERR   13
+    WICOFE_ISR_ERR   14
+    WICOFE_ISR_NOERR 15
+    WICOFE_ISR_NOERR 16
+    WICOFE_ISR_ERR   17
+    WICOFE_ISR_NOERR 18
+    WICOFE_ISR_NOERR 19
+    WICOFE_ISR_NOERR 20
+    WICOFE_ISR_ERR   21
+    WICOFE_ISR_NOERR 22
+    WICOFE_ISR_NOERR 23
+    WICOFE_ISR_NOERR 24
+    WICOFE_ISR_NOERR 25
+    WICOFE_ISR_NOERR 26
+    WICOFE_ISR_NOERR 27
+    WICOFE_ISR_NOERR 28
+    WICOFE_ISR_ERR   29
+    WICOFE_ISR_ERR   30
+    WICOFE_ISR_NOERR 31
+    "#,
+    options(att_syntax)
+);
+
+/// Register/exception data passed by the x86-64 assembly entry path.
+///
+/// The saved GPR order is r15..rax, followed by vector, error code, RIP,
+/// CS, and RFLAGS.
+#[cfg(target_os = "none")]
+#[unsafe(no_mangle)]
+pub extern "C" fn wicofe_exception_dispatch(
+    vector: u64,
+    error_code: u64,
+    registers: *const u64,
+) -> ! {
+    // SAFETY: The assembly entry has pushed the normalized vector/error pair
+    // and all GPRs. The saved instruction pointer is the eighteenth u64.
+    let instruction_pointer = unsafe { *registers.add(17) };
+    panic!(
+        "CPU exception: vector={vector}, error={error_code:#x}, rip={instruction_pointer:#x}"
+    );
+}
