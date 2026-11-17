@@ -207,8 +207,7 @@ fn verify_pmm_alloc_free(pmm: &mut Pmm<'_>) -> bool {
 }
 
 #[cfg(feature = "irq-smoke-pit")]
-static IRQ_SMOKE_TICKS: core::sync::atomic::AtomicUsize =
-    core::sync::atomic::AtomicUsize::new(0);
+static IRQ_SMOKE_TICKS: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
 
 #[cfg(feature = "irq-smoke-pit")]
 extern "C" fn irq_smoke_pit_handler(_: &mut crate::arch::x86_64::irq::IrqStackFrame) {
@@ -342,7 +341,9 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
                                 early_serial_write_str("WICOFE: IRQ_PIT_SMOKE_FAILED\n");
                                 loop {
                                     // SAFETY: A failed interrupt smoke test is terminal.
-                                    unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)) };
+                                    unsafe {
+                                        core::arch::asm!("cli; hlt", options(nomem, nostack))
+                                    };
                                 }
                             }
                         }
