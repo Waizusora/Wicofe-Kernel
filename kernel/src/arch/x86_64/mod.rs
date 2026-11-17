@@ -10,6 +10,7 @@ pub mod interrupts;
 pub mod irq;
 pub mod paging;
 pub mod pic;
+pub mod pit;
 
 /// Architecture identifier used by early diagnostics.
 pub const ARCH_NAME: &str = "x86_64";
