@@ -23,6 +23,7 @@ kernel-image = []
 exception-smoke-int3 = []
 exception-smoke-ud2 = []
 exception-smoke-page-fault = []
+exception-smoke-double-fault = []
 
 [lints]
 workspace = true
