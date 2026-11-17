@@ -221,26 +221,30 @@ fn verify_irq_dispatch_with_pit() -> bool {
     if crate::arch::x86_64::irq::register_handler(0, irq_smoke_pit_handler).is_err() {
         return false;
     }
+    early_serial_write_str("WICOFE: IRQ_PIT_HANDLER_READY\n");
     // SAFETY: Bootstrap runs at ring 0 with IF clear and owns PIT programming.
     if unsafe { crate::arch::x86_64::pit::initialize_periodic(100) }.is_err() {
         return false;
     }
+    early_serial_write_str("WICOFE: IRQ_PIT_PROGRAMMED\n");
     // SAFETY: IRQ0 handler is installed, IDT is loaded, and IF remains clear.
     if unsafe { crate::arch::x86_64::irq::unmask(0) }.is_err() {
         return false;
     }
+    early_serial_write_str("WICOFE: IRQ_PIT_UNMASKED\n");
 
     // STI is confined to this build-only smoke test. A bounded polling loop
     // prevents a missing IRQ from leaving QEMU blocked forever in HLT.
-    unsafe { core::arch::asm!("sti", options(nomem, nostack)) };
-    for _ in 0..100_000_000 {
+    early_serial_write_str("WICOFE: IRQ_PIT_WAITING\n");
+    unsafe { core::arch::asm!("sti", options(nostack)) };
+    for _ in 0..10_000_000 {
         if IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0 {
             break;
         }
         core::hint::spin_loop();
     }
     // SAFETY: Disable interrupts before changing the PIC mask.
-    unsafe { core::arch::asm!("cli", options(nomem, nostack)) };
+    unsafe { core::arch::asm!("cli", options(nostack)) };
     // SAFETY: IF is clear and bootstrap exclusively owns the PIC.
     let _ = unsafe { crate::arch::x86_64::pic::set_irq_mask(0, true) };
     IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0
