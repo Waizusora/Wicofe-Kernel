@@ -1754,14 +1754,20 @@ mod tests {
         // remains valid for the lifetime of the user root.
         let shared = unsafe { pool.share_kernel_half(kernel_root, user_root, 48) }.unwrap();
         assert_eq!(shared, 1);
-        assert_eq!(pool.memory().read_entry(user_root, 256), Some(shared_branch));
+        assert_eq!(
+            pool.memory().read_entry(user_root, 256),
+            Some(shared_branch)
+        );
         assert_eq!(pool.owned_frame_count(), 2);
 
         // SAFETY: The user root is inactive; its shared branch is borrowed and
         // must not be traversed or reclaimed by this pool.
         unsafe { pool.destroy_address_space(user_root, 48) }.unwrap();
         assert_eq!(pool.owned_frame_count(), 1);
-        assert_eq!(pool.memory().read_entry(kernel_root, 256), Some(shared_branch));
+        assert_eq!(
+            pool.memory().read_entry(kernel_root, 256),
+            Some(shared_branch)
+        );
 
         // SAFETY: The kernel root is also private and inactive.
         unsafe { pool.destroy_address_space(kernel_root, 48) }.unwrap();
@@ -1799,9 +1805,10 @@ mod tests {
         let mut pool = unsafe { PageTableFramePool::<3>::new(&mut pmm, hhdm_offset, 48) }.unwrap();
         let kernel_root = pool.create_address_space().unwrap();
         let user_root = pool.create_address_space().unwrap();
-        assert!(pool
-            .memory()
-            .write_entry(kernel_root, 256, 0x9000 | PRESENT | WRITABLE | USER));
+        assert!(
+            pool.memory()
+                .write_entry(kernel_root, 256, 0x9000 | PRESENT | WRITABLE | USER)
+        );
 
         // SAFETY: Both roots are private and inactive.
         assert_eq!(
