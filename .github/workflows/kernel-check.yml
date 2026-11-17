@@ -144,7 +144,7 @@ jobs:
           grep -Fq "WICOFE: PMM_READY" target/qemu-serial.log
           grep -Fq "WICOFE: PMM_ALLOC_FREE_OK" target/qemu-serial.log
           grep -Fq "WICOFE: PIC_READY_MASKED" target/qemu-serial.log
-          if grep -Eq "WICOFE: (BOOTINFO_INVALID|PMM_INIT_FAILED|PMM_ALLOC_FREE_FAILED|BOOT_FAILED|PIC_INIT_FAILED)\" target/qemu-serial.log; then
+          if grep -Eq "WICOFE: (BOOTINFO_INVALID|PMM_INIT_FAILED|PMM_ALLOC_FREE_FAILED|BOOT_FAILED|PIC_INIT_FAILED)" target/qemu-serial.log; then
             echo "Kernel reported a bootstrap failure"
             exit 1
           fi
