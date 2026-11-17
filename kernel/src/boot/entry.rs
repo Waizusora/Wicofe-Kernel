@@ -232,11 +232,25 @@ fn verify_irq_dispatch_with_pit() -> bool {
         return false;
     }
     early_serial_write_str("WICOFE: IRQ_PIT_UNMASKED\n");
+    // SAFETY: IF is still clear and bootstrap owns the legacy PIC.
+    let masks = unsafe { crate::arch::x86_64::pic::read_masks() };
+    if masks.master & 0x01 != 0 {
+        return false;
+    }
 
     // STI is confined to this build-only smoke test. A bounded polling loop
     // makes a missing IRQ produce a deterministic failure marker.
     early_serial_write_str("WICOFE: IRQ_PIT_WAITING\n");
     unsafe { core::arch::asm!("sti", options(nostack)) };
+    let rflags: u64;
+    // SAFETY: PUSHFQ reads the current RFLAGS after STI; it does not alter them.
+    unsafe {
+        core::arch::asm!("pushfq; pop {}", out(reg) rflags, options(nomem, preserves_flags));
+    }
+    if rflags & (1 << 9) == 0 {
+        return false;
+    }
+    early_serial_write_str("WICOFE: IRQ_PIT_IF_ENABLED\n");
     for _ in 0..10_000_000 {
         if IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0 {
             break;
