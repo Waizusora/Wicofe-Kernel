@@ -129,14 +129,12 @@ pub fn set_irq_mask_with_io<I: PicIo>(
     })
 }
 
-/// Send EOI for a real IRQ, including correct spurious IRQ7/IRQ15 handling.
 /// Check the in-service register before invoking an IRQ handler.
 /// Spurious IRQ15 requires a master cascade EOI; real IRQs remain in service.
-pub fn is_spurious_irq_with_io<I: PicIo>(
-    io: &mut I,
-    irq: u8,
-) -> Result<bool, InvalidIrq> {
-    if irq >= IRQ_COUNT { return Err(InvalidIrq(irq)); }
+pub fn is_spurious_irq_with_io<I: PicIo>(io: &mut I, irq: u8) -> Result<bool, InvalidIrq> {
+    if irq >= IRQ_COUNT {
+        return Err(InvalidIrq(irq));
+    }
     if irq == 7 {
         io.write_u8(MASTER_COMMAND, OCW3_READ_ISR);
         return Ok(io.read_u8(MASTER_COMMAND) & 0x80 == 0);
@@ -153,8 +151,12 @@ pub fn is_spurious_irq_with_io<I: PicIo>(
 
 /// Send EOI after a real IRQ handler has completed.
 pub fn send_eoi_with_io<I: PicIo>(io: &mut I, irq: u8) -> Result<(), InvalidIrq> {
-    if irq >= IRQ_COUNT { return Err(InvalidIrq(irq)); }
-    if irq >= 8 { io.write_u8(SLAVE_COMMAND, EOI); }
+    if irq >= IRQ_COUNT {
+        return Err(InvalidIrq(irq));
+    }
+    if irq >= 8 {
+        io.write_u8(SLAVE_COMMAND, EOI);
+    }
     io.write_u8(MASTER_COMMAND, EOI);
     Ok(())
 }
