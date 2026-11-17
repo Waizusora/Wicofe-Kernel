@@ -221,7 +221,7 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
         // SAFETY: _start entered at ring 0 with interrupts disabled. The
         // inherited mappings cover the resident GDT, TSS, and IST stack.
         unsafe { crate::arch::x86_64::gdt::initialize() };
-        early_serial_write_str("WICOFE: GDT_TSS_READY\\n");
+        early_serial_write_str("WICOFE: GDT_TSS_READY\n");
 
         if unsafe { crate::arch::x86_64::interrupts::initialize_and_load() }.is_err() {
             early_serial_write_str("WICOFE: IDT_INIT_FAILED\\n");
