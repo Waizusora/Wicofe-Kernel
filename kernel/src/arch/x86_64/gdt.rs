@@ -84,6 +84,13 @@ static mut BOOT_TSS: TaskStateSegment = TaskStateSegment::new();
 #[cfg(target_os = "none")]
 static mut DOUBLE_FAULT_STACK: DoubleFaultStack = DoubleFaultStack([0; DOUBLE_FAULT_STACK_SIZE]);
 
+/// Return the address range reserved for the bootstrap double-fault IST1 stack.
+#[cfg(target_os = "none")]
+pub fn double_fault_stack_bounds() -> (u64, u64) {
+    let base = core::ptr::addr_of!(DOUBLE_FAULT_STACK) as u64;
+    (base, base + DOUBLE_FAULT_STACK_SIZE as u64)
+}
+
 /// Install the bootstrap GDT, load the TSS, and configure IST1.
 ///
 /// # Safety
