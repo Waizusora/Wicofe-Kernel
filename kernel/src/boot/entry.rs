@@ -242,6 +242,7 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
             }
         }
         early_serial_write_str("WICOFE: PIC_READY_MASKED\\n");
+        early_serial_write_str("WICOFE: IRQ_DISPATCH_READY_MASKED\\n");
     }
     // Resolve linker bounds without reading the bytes at either symbol.
     // SAFETY: The final linker scripts define both symbols as image boundaries.
