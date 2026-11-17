@@ -313,13 +313,13 @@ wicofe_exception_\number:
     .endm
 
     .macro WICOFE_IRQ_NOERR number
-    .global wicofe_irq_\\number
-    .type wicofe_irq_\\number,@function
-wicofe_irq_\\number:
+    .global wicofe_irq_\number
+    .type wicofe_irq_\number,@function
+wicofe_irq_\number:
     pushq $0
-    pushq $\\number
+    pushq $\number
     jmp wicofe_irq_common
-    .size wicofe_irq_\\number, . - wicofe_irq_\\number
+    .size wicofe_irq_\number, . - wicofe_irq_\number
     .endm
 
     .global wicofe_irq_common
