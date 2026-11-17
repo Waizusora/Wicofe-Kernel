@@ -962,6 +962,22 @@ pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
     unsafe { idt.load() }
 }
 
+/// Corrupt the #UD and #GP code selectors so the next UD2 delivery escalates
+/// through #GP to #DF. The #DF gate remains valid and uses IST1.
+///
+/// # Safety
+/// Must only be called by the dedicated QEMU smoke build after IDT setup,
+/// with interrupts disabled. This deliberately makes vectors 6 and 13 unusable.
+#[cfg(all(target_os = "none", feature = "exception-smoke-double-fault"))]
+pub unsafe fn prepare_double_fault_smoke() {
+    // SAFETY: The smoke test runs once on the bootstrap CPU and owns the IDT.
+    let idt = unsafe { &mut *core::ptr::addr_of_mut!(BOOT_IDT) };
+    for vector in [6usize, 13usize] {
+        let low = idt.entries[vector].low;
+        idt.entries[vector].low = (low & !(0xffff_u64 << 16)) | (0x20_u64 << 16);
+    }
+}
+
 /// Register/exception data passed by the x86-64 assembly entry path.
 ///
 /// The saved GPR order is r15..rax, followed by vector, error code, RIP,
@@ -979,6 +995,17 @@ pub extern "C" fn wicofe_exception_dispatch(
     let frame = unsafe { &*registers.cast::<ExceptionStackFrame>() };
     debug_assert_eq!(frame.vector, vector);
     debug_assert_eq!(frame.error_code, error_code);
+
+    if vector == 8 {
+        let (stack_start, stack_end) = crate::arch::x86_64::gdt::double_fault_stack_bounds();
+        let frame_address = registers as u64;
+        let ist1_valid = frame_address >= stack_start && frame_address < stack_end;
+        panic!(
+            "CPU exception: vector=8, error={error_code:#x}, rip={:#x}, ist1={}",
+            frame.instruction_pointer,
+            if ist1_valid { "ok" } else { "invalid" }
+        );
+    }
 
     // CR2 is meaningful for #PF only; reading it for other exceptions would
     // report stale state and make the diagnostic misleading.
