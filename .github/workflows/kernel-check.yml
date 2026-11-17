@@ -157,7 +157,7 @@ jobs:
         run: |
           set +e
           timeout 20s qemu-system-x86_64 \
-            -machine q35 -m 512M -cdrom target/wicofe-x86_64-irq-pit-smoke.iso -boot d \
+            -machine pc -m 512M -cdrom target/wicofe-x86_64-irq-pit-smoke.iso -boot d \
             -display none -serial file:target/qemu-irq-pit-serial.log \
             -d int,cpu_reset,guest_errors -D target/qemu-irq-pit-debug.log \
             -no-reboot -no-shutdown
