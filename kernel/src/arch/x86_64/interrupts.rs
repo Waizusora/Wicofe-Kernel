@@ -301,6 +301,14 @@ wicofe_exception_common:
     jmp 1b
     .size wicofe_exception_common, . - wicofe_exception_common
 
+    .global wicofe_unhandled_interrupt
+    .type wicofe_unhandled_interrupt,@function
+wicofe_unhandled_interrupt:
+    pushq $0
+    pushq $255
+    jmp wicofe_exception_common
+    .size wicofe_unhandled_interrupt, . - wicofe_unhandled_interrupt
+
     WICOFE_ISR_NOERR 0
     WICOFE_ISR_NOERR 1
     WICOFE_ISR_NOERR 2
@@ -336,6 +344,126 @@ wicofe_exception_common:
     "#,
     options(att_syntax)
 );
+
+/// Boot-time IDT storage. It remains resident for the lifetime of the kernel.
+#[cfg(target_os = "none")]
+static mut BOOT_IDT: InterruptDescriptorTable = InterruptDescriptorTable::new();
+
+#[cfg(target_os = "none")]
+unsafe extern "C" {
+    fn wicofe_unhandled_interrupt();
+    fn wicofe_exception_0();
+    fn wicofe_exception_1();
+    fn wicofe_exception_2();
+    fn wicofe_exception_3();
+    fn wicofe_exception_4();
+    fn wicofe_exception_5();
+    fn wicofe_exception_6();
+    fn wicofe_exception_7();
+    fn wicofe_exception_8();
+    fn wicofe_exception_9();
+    fn wicofe_exception_10();
+    fn wicofe_exception_11();
+    fn wicofe_exception_12();
+    fn wicofe_exception_13();
+    fn wicofe_exception_14();
+    fn wicofe_exception_15();
+    fn wicofe_exception_16();
+    fn wicofe_exception_17();
+    fn wicofe_exception_18();
+    fn wicofe_exception_19();
+    fn wicofe_exception_20();
+    fn wicofe_exception_21();
+    fn wicofe_exception_22();
+    fn wicofe_exception_23();
+    fn wicofe_exception_24();
+    fn wicofe_exception_25();
+    fn wicofe_exception_26();
+    fn wicofe_exception_27();
+    fn wicofe_exception_28();
+    fn wicofe_exception_29();
+    fn wicofe_exception_30();
+    fn wicofe_exception_31();
+}
+
+/// Populate and load the complete fail-stop IDT on the bootstrap CPU.
+///
+/// All vectors 0-31 use their normalized exception stubs. Vectors 32-255
+/// share a terminal fallback stub until device-specific interrupt handlers
+/// are introduced. The fallback reports vector 255 as an "unhandled" marker.
+///
+/// # Safety
+/// Must run once on the bootstrap CPU at ring 0, with interrupts disabled.
+/// The currently loaded GDT must remain active and its current CS selector
+/// must identify a present 64-bit code segment. The kernel image and this
+/// static IDT must be mapped executable/readable respectively. The current
+/// stack must be valid for fatal exception entry. This baseline does not use
+/// IST; a later TSS stage must provide a dedicated double-fault stack before
+/// relying on recovery from stack-corruption faults.
+#[cfg(target_os = "none")]
+pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
+    let code_selector: u16;
+    // SAFETY: Reading CS is unprivileged and does not modify architectural state.
+    unsafe {
+        asm!(
+            "mov {selector:x}, cs",
+            selector = out(reg) code_selector,
+            options(nomem, nostack, preserves_flags)
+        );
+    }
+
+    let exception_handlers: [u64; 32] = [
+        wicofe_exception_0 as *const () as u64,
+        wicofe_exception_1 as *const () as u64,
+        wicofe_exception_2 as *const () as u64,
+        wicofe_exception_3 as *const () as u64,
+        wicofe_exception_4 as *const () as u64,
+        wicofe_exception_5 as *const () as u64,
+        wicofe_exception_6 as *const () as u64,
+        wicofe_exception_7 as *const () as u64,
+        wicofe_exception_8 as *const () as u64,
+        wicofe_exception_9 as *const () as u64,
+        wicofe_exception_10 as *const () as u64,
+        wicofe_exception_11 as *const () as u64,
+        wicofe_exception_12 as *const () as u64,
+        wicofe_exception_13 as *const () as u64,
+        wicofe_exception_14 as *const () as u64,
+        wicofe_exception_15 as *const () as u64,
+        wicofe_exception_16 as *const () as u64,
+        wicofe_exception_17 as *const () as u64,
+        wicofe_exception_18 as *const () as u64,
+        wicofe_exception_19 as *const () as u64,
+        wicofe_exception_20 as *const () as u64,
+        wicofe_exception_21 as *const () as u64,
+        wicofe_exception_22 as *const () as u64,
+        wicofe_exception_23 as *const () as u64,
+        wicofe_exception_24 as *const () as u64,
+        wicofe_exception_25 as *const () as u64,
+        wicofe_exception_26 as *const () as u64,
+        wicofe_exception_27 as *const () as u64,
+        wicofe_exception_28 as *const () as u64,
+        wicofe_exception_29 as *const () as u64,
+        wicofe_exception_30 as *const () as u64,
+        wicofe_exception_31 as *const () as u64,
+    ];
+    let fallback_handler = wicofe_unhandled_interrupt as *const () as u64;
+
+    // SAFETY: The function's single-call contract grants exclusive access to
+    // this static table before it is installed on the bootstrap CPU.
+    let idt = unsafe { &mut *core::ptr::addr_of_mut!(BOOT_IDT) };
+    for vector in 0..IDT_ENTRIES {
+        let handler = if vector < exception_handlers.len() {
+            exception_handlers[vector]
+        } else {
+            fallback_handler
+        };
+        idt.set_handler(vector as u8, handler, code_selector, 0, 0)?;
+    }
+
+    // SAFETY: The caller guarantees the GDT selector, mappings, stack, and
+    // privileged execution context required by LIDT.
+    unsafe { idt.load() }
+}
 
 /// Register/exception data passed by the x86-64 assembly entry path.
 ///
