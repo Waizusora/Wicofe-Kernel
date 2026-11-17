@@ -324,7 +324,7 @@ impl AddressSpace {
     /// User roots intentionally permit supervisor-only mappings in the upper
     /// canonical half so a future backend can share kernel mappings. Sharing
     /// and ownership of those page-table branches are not implemented here.
-    pub const fn validate_mapping(self, request: MappingRequest) -> Result<(), VmmError> {
+    pub fn validate_mapping(self, request: MappingRequest) -> Result<(), VmmError> {
         self.geometry.validate_range(request.virtual_range())?;
         let upper_half = self
             .geometry
