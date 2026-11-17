@@ -22,6 +22,7 @@ default = []
 kernel-image = []
 exception-smoke-int3 = []
 exception-smoke-ud2 = []
+exception-smoke-page-fault = []
 
 [lints]
 workspace = true
