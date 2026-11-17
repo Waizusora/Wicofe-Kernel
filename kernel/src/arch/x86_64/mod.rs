@@ -5,6 +5,7 @@
 //! transfers to the common Rust bootstrap. It does not replace the bootloader
 //! page tables or install descriptor tables yet.
 
+pub mod interrupts;
 pub mod paging;
 
 /// Architecture identifier used by early diagnostics.
