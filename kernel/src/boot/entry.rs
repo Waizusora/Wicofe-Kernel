@@ -229,6 +229,19 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
             }
         }
         early_serial_write_str("WICOFE: IDT_READY\n");
+        // SAFETY: Bootstrap runs at ring 0 with IF clear and no other CPU or
+        // driver accesses the legacy PIC yet. Keep all IRQ lines masked.
+        let pic_masks = unsafe { crate::arch::x86_64::pic::initialize() };
+        if pic_masks.master != crate::arch::x86_64::pic::MASK_ALL
+            || pic_masks.slave != crate::arch::x86_64::pic::MASK_ALL
+        {
+            early_serial_write_str("WICOFE: PIC_INIT_FAILED\\n");
+            loop {
+                // SAFETY: PIC initialization failure is terminal; IF remains clear.
+                unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)) };
+            }
+        }
+        early_serial_write_str("WICOFE: PIC_READY_MASKED\\n");
     }
     // Resolve linker bounds without reading the bytes at either symbol.
     // SAFETY: The final linker scripts define both symbols as image boundaries.
