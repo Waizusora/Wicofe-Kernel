@@ -224,13 +224,13 @@ pub extern "C" fn wicofe_bootstrap() -> ! {
         early_serial_write_str("WICOFE: GDT_TSS_READY\n");
 
         if unsafe { crate::arch::x86_64::interrupts::initialize_and_load() }.is_err() {
-            early_serial_write_str("WICOFE: IDT_INIT_FAILED\\n");
+            early_serial_write_str("WICOFE: IDT_INIT_FAILED\n");
             loop {
                 // SAFETY: Initialization failure is terminal; IF remains clear.
                 unsafe { core::arch::asm!("cli; hlt", options(nomem, nostack)) };
             }
         }
-        early_serial_write_str("WICOFE: IDT_READY\\n");
+        early_serial_write_str("WICOFE: IDT_READY\n");
     }
     // Resolve linker bounds without reading the bytes at either symbol.
     // SAFETY: The final linker scripts define both symbols as image boundaries.
