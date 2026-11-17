@@ -13,6 +13,7 @@ This directory is exclusively for Wicofe kernel architecture, implementation con
 - [Memory management](MEMORY_MANAGEMENT_SPEC.md)
 - [Boot protocol and handoff](BOOT_SPEC.md)
 - [Frenit integration contract 0.1](https://github.com/Waizusora/Wicofe-Specs/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md) — proposed cross-component gates; kernel syscall ABI is not implied.
+- [x86-64 IRQ, PIC, and PIT](X86_64_IRQ_PIC_PIT.md) — returning IRQ path and masked timer smoke-test boundary.
 - [x86-64 kernel image and boot validation](X86_64_KERNEL_IMAGE.md)
 - [Limine QEMU boot procedure](LIMINE_QEMU_BOOT.md)
 
