@@ -895,9 +895,7 @@ pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
     ];
     // SAFETY: The assembly exports exactly 224 pointer-sized entries for
     // vectors 32-255; each points to its corresponding normalized stub.
-    let interrupt_handlers = unsafe {
-        core::ptr::addr_of!(wicofe_interrupt_stub_table)
-    };
+    let interrupt_handlers = unsafe { core::ptr::addr_of!(wicofe_interrupt_stub_table) };
 
     // SAFETY: The function's single-call contract grants exclusive access to
     // this static table before it is installed on the bootstrap CPU.
