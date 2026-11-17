@@ -291,7 +291,10 @@ mod tests {
     #[test]
     fn invalid_irq_is_rejected_without_io() {
         let mut pic = MockPic::default();
-        assert_eq!(set_irq_mask_with_io(&mut pic, 16, false), Err(InvalidIrq(16)));
+        assert_eq!(
+            set_irq_mask_with_io(&mut pic, 16, false),
+            Err(InvalidIrq(16))
+        );
         assert_eq!(acknowledge_irq_with_io(&mut pic, 16), Err(InvalidIrq(16)));
         assert!(pic.writes.is_empty());
     }
@@ -303,10 +306,7 @@ mod tests {
             acknowledge_irq_with_io(&mut pic, 10),
             Ok(IrqAcknowledge::Acknowledged)
         );
-        assert_eq!(
-            pic.writes,
-            [(SLAVE_COMMAND, EOI), (MASTER_COMMAND, EOI)]
-        );
+        assert_eq!(pic.writes, [(SLAVE_COMMAND, EOI), (MASTER_COMMAND, EOI)]);
     }
 
     #[test]
