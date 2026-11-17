@@ -300,14 +300,6 @@ wicofe_exception_common:
     jmp 1b
     .size wicofe_exception_common, . - wicofe_exception_common
 
-    .global wicofe_unhandled_interrupt
-    .type wicofe_unhandled_interrupt,@function
-wicofe_unhandled_interrupt:
-    pushq $0
-    pushq $255
-    jmp wicofe_exception_common
-    .size wicofe_unhandled_interrupt, . - wicofe_unhandled_interrupt
-
     WICOFE_ISR_NOERR 0
     WICOFE_ISR_NOERR 1
     WICOFE_ISR_NOERR 2
@@ -340,6 +332,462 @@ wicofe_unhandled_interrupt:
     WICOFE_ISR_ERR   29
     WICOFE_ISR_ERR   30
     WICOFE_ISR_NOERR 31
+    WICOFE_ISR_NOERR 32
+    WICOFE_ISR_NOERR 33
+    WICOFE_ISR_NOERR 34
+    WICOFE_ISR_NOERR 35
+    WICOFE_ISR_NOERR 36
+    WICOFE_ISR_NOERR 37
+    WICOFE_ISR_NOERR 38
+    WICOFE_ISR_NOERR 39
+    WICOFE_ISR_NOERR 40
+    WICOFE_ISR_NOERR 41
+    WICOFE_ISR_NOERR 42
+    WICOFE_ISR_NOERR 43
+    WICOFE_ISR_NOERR 44
+    WICOFE_ISR_NOERR 45
+    WICOFE_ISR_NOERR 46
+    WICOFE_ISR_NOERR 47
+    WICOFE_ISR_NOERR 48
+    WICOFE_ISR_NOERR 49
+    WICOFE_ISR_NOERR 50
+    WICOFE_ISR_NOERR 51
+    WICOFE_ISR_NOERR 52
+    WICOFE_ISR_NOERR 53
+    WICOFE_ISR_NOERR 54
+    WICOFE_ISR_NOERR 55
+    WICOFE_ISR_NOERR 56
+    WICOFE_ISR_NOERR 57
+    WICOFE_ISR_NOERR 58
+    WICOFE_ISR_NOERR 59
+    WICOFE_ISR_NOERR 60
+    WICOFE_ISR_NOERR 61
+    WICOFE_ISR_NOERR 62
+    WICOFE_ISR_NOERR 63
+    WICOFE_ISR_NOERR 64
+    WICOFE_ISR_NOERR 65
+    WICOFE_ISR_NOERR 66
+    WICOFE_ISR_NOERR 67
+    WICOFE_ISR_NOERR 68
+    WICOFE_ISR_NOERR 69
+    WICOFE_ISR_NOERR 70
+    WICOFE_ISR_NOERR 71
+    WICOFE_ISR_NOERR 72
+    WICOFE_ISR_NOERR 73
+    WICOFE_ISR_NOERR 74
+    WICOFE_ISR_NOERR 75
+    WICOFE_ISR_NOERR 76
+    WICOFE_ISR_NOERR 77
+    WICOFE_ISR_NOERR 78
+    WICOFE_ISR_NOERR 79
+    WICOFE_ISR_NOERR 80
+    WICOFE_ISR_NOERR 81
+    WICOFE_ISR_NOERR 82
+    WICOFE_ISR_NOERR 83
+    WICOFE_ISR_NOERR 84
+    WICOFE_ISR_NOERR 85
+    WICOFE_ISR_NOERR 86
+    WICOFE_ISR_NOERR 87
+    WICOFE_ISR_NOERR 88
+    WICOFE_ISR_NOERR 89
+    WICOFE_ISR_NOERR 90
+    WICOFE_ISR_NOERR 91
+    WICOFE_ISR_NOERR 92
+    WICOFE_ISR_NOERR 93
+    WICOFE_ISR_NOERR 94
+    WICOFE_ISR_NOERR 95
+    WICOFE_ISR_NOERR 96
+    WICOFE_ISR_NOERR 97
+    WICOFE_ISR_NOERR 98
+    WICOFE_ISR_NOERR 99
+    WICOFE_ISR_NOERR 100
+    WICOFE_ISR_NOERR 101
+    WICOFE_ISR_NOERR 102
+    WICOFE_ISR_NOERR 103
+    WICOFE_ISR_NOERR 104
+    WICOFE_ISR_NOERR 105
+    WICOFE_ISR_NOERR 106
+    WICOFE_ISR_NOERR 107
+    WICOFE_ISR_NOERR 108
+    WICOFE_ISR_NOERR 109
+    WICOFE_ISR_NOERR 110
+    WICOFE_ISR_NOERR 111
+    WICOFE_ISR_NOERR 112
+    WICOFE_ISR_NOERR 113
+    WICOFE_ISR_NOERR 114
+    WICOFE_ISR_NOERR 115
+    WICOFE_ISR_NOERR 116
+    WICOFE_ISR_NOERR 117
+    WICOFE_ISR_NOERR 118
+    WICOFE_ISR_NOERR 119
+    WICOFE_ISR_NOERR 120
+    WICOFE_ISR_NOERR 121
+    WICOFE_ISR_NOERR 122
+    WICOFE_ISR_NOERR 123
+    WICOFE_ISR_NOERR 124
+    WICOFE_ISR_NOERR 125
+    WICOFE_ISR_NOERR 126
+    WICOFE_ISR_NOERR 127
+    WICOFE_ISR_NOERR 128
+    WICOFE_ISR_NOERR 129
+    WICOFE_ISR_NOERR 130
+    WICOFE_ISR_NOERR 131
+    WICOFE_ISR_NOERR 132
+    WICOFE_ISR_NOERR 133
+    WICOFE_ISR_NOERR 134
+    WICOFE_ISR_NOERR 135
+    WICOFE_ISR_NOERR 136
+    WICOFE_ISR_NOERR 137
+    WICOFE_ISR_NOERR 138
+    WICOFE_ISR_NOERR 139
+    WICOFE_ISR_NOERR 140
+    WICOFE_ISR_NOERR 141
+    WICOFE_ISR_NOERR 142
+    WICOFE_ISR_NOERR 143
+    WICOFE_ISR_NOERR 144
+    WICOFE_ISR_NOERR 145
+    WICOFE_ISR_NOERR 146
+    WICOFE_ISR_NOERR 147
+    WICOFE_ISR_NOERR 148
+    WICOFE_ISR_NOERR 149
+    WICOFE_ISR_NOERR 150
+    WICOFE_ISR_NOERR 151
+    WICOFE_ISR_NOERR 152
+    WICOFE_ISR_NOERR 153
+    WICOFE_ISR_NOERR 154
+    WICOFE_ISR_NOERR 155
+    WICOFE_ISR_NOERR 156
+    WICOFE_ISR_NOERR 157
+    WICOFE_ISR_NOERR 158
+    WICOFE_ISR_NOERR 159
+    WICOFE_ISR_NOERR 160
+    WICOFE_ISR_NOERR 161
+    WICOFE_ISR_NOERR 162
+    WICOFE_ISR_NOERR 163
+    WICOFE_ISR_NOERR 164
+    WICOFE_ISR_NOERR 165
+    WICOFE_ISR_NOERR 166
+    WICOFE_ISR_NOERR 167
+    WICOFE_ISR_NOERR 168
+    WICOFE_ISR_NOERR 169
+    WICOFE_ISR_NOERR 170
+    WICOFE_ISR_NOERR 171
+    WICOFE_ISR_NOERR 172
+    WICOFE_ISR_NOERR 173
+    WICOFE_ISR_NOERR 174
+    WICOFE_ISR_NOERR 175
+    WICOFE_ISR_NOERR 176
+    WICOFE_ISR_NOERR 177
+    WICOFE_ISR_NOERR 178
+    WICOFE_ISR_NOERR 179
+    WICOFE_ISR_NOERR 180
+    WICOFE_ISR_NOERR 181
+    WICOFE_ISR_NOERR 182
+    WICOFE_ISR_NOERR 183
+    WICOFE_ISR_NOERR 184
+    WICOFE_ISR_NOERR 185
+    WICOFE_ISR_NOERR 186
+    WICOFE_ISR_NOERR 187
+    WICOFE_ISR_NOERR 188
+    WICOFE_ISR_NOERR 189
+    WICOFE_ISR_NOERR 190
+    WICOFE_ISR_NOERR 191
+    WICOFE_ISR_NOERR 192
+    WICOFE_ISR_NOERR 193
+    WICOFE_ISR_NOERR 194
+    WICOFE_ISR_NOERR 195
+    WICOFE_ISR_NOERR 196
+    WICOFE_ISR_NOERR 197
+    WICOFE_ISR_NOERR 198
+    WICOFE_ISR_NOERR 199
+    WICOFE_ISR_NOERR 200
+    WICOFE_ISR_NOERR 201
+    WICOFE_ISR_NOERR 202
+    WICOFE_ISR_NOERR 203
+    WICOFE_ISR_NOERR 204
+    WICOFE_ISR_NOERR 205
+    WICOFE_ISR_NOERR 206
+    WICOFE_ISR_NOERR 207
+    WICOFE_ISR_NOERR 208
+    WICOFE_ISR_NOERR 209
+    WICOFE_ISR_NOERR 210
+    WICOFE_ISR_NOERR 211
+    WICOFE_ISR_NOERR 212
+    WICOFE_ISR_NOERR 213
+    WICOFE_ISR_NOERR 214
+    WICOFE_ISR_NOERR 215
+    WICOFE_ISR_NOERR 216
+    WICOFE_ISR_NOERR 217
+    WICOFE_ISR_NOERR 218
+    WICOFE_ISR_NOERR 219
+    WICOFE_ISR_NOERR 220
+    WICOFE_ISR_NOERR 221
+    WICOFE_ISR_NOERR 222
+    WICOFE_ISR_NOERR 223
+    WICOFE_ISR_NOERR 224
+    WICOFE_ISR_NOERR 225
+    WICOFE_ISR_NOERR 226
+    WICOFE_ISR_NOERR 227
+    WICOFE_ISR_NOERR 228
+    WICOFE_ISR_NOERR 229
+    WICOFE_ISR_NOERR 230
+    WICOFE_ISR_NOERR 231
+    WICOFE_ISR_NOERR 232
+    WICOFE_ISR_NOERR 233
+    WICOFE_ISR_NOERR 234
+    WICOFE_ISR_NOERR 235
+    WICOFE_ISR_NOERR 236
+    WICOFE_ISR_NOERR 237
+    WICOFE_ISR_NOERR 238
+    WICOFE_ISR_NOERR 239
+    WICOFE_ISR_NOERR 240
+    WICOFE_ISR_NOERR 241
+    WICOFE_ISR_NOERR 242
+    WICOFE_ISR_NOERR 243
+    WICOFE_ISR_NOERR 244
+    WICOFE_ISR_NOERR 245
+    WICOFE_ISR_NOERR 246
+    WICOFE_ISR_NOERR 247
+    WICOFE_ISR_NOERR 248
+    WICOFE_ISR_NOERR 249
+    WICOFE_ISR_NOERR 250
+    WICOFE_ISR_NOERR 251
+    WICOFE_ISR_NOERR 252
+    WICOFE_ISR_NOERR 253
+    WICOFE_ISR_NOERR 254
+    WICOFE_ISR_NOERR 255
+
+    .section .rodata
+    .balign 8
+    .global wicofe_interrupt_stub_table
+    .type wicofe_interrupt_stub_table,@object
+wicofe_interrupt_stub_table:
+    .quad wicofe_exception_32
+    .quad wicofe_exception_33
+    .quad wicofe_exception_34
+    .quad wicofe_exception_35
+    .quad wicofe_exception_36
+    .quad wicofe_exception_37
+    .quad wicofe_exception_38
+    .quad wicofe_exception_39
+    .quad wicofe_exception_40
+    .quad wicofe_exception_41
+    .quad wicofe_exception_42
+    .quad wicofe_exception_43
+    .quad wicofe_exception_44
+    .quad wicofe_exception_45
+    .quad wicofe_exception_46
+    .quad wicofe_exception_47
+    .quad wicofe_exception_48
+    .quad wicofe_exception_49
+    .quad wicofe_exception_50
+    .quad wicofe_exception_51
+    .quad wicofe_exception_52
+    .quad wicofe_exception_53
+    .quad wicofe_exception_54
+    .quad wicofe_exception_55
+    .quad wicofe_exception_56
+    .quad wicofe_exception_57
+    .quad wicofe_exception_58
+    .quad wicofe_exception_59
+    .quad wicofe_exception_60
+    .quad wicofe_exception_61
+    .quad wicofe_exception_62
+    .quad wicofe_exception_63
+    .quad wicofe_exception_64
+    .quad wicofe_exception_65
+    .quad wicofe_exception_66
+    .quad wicofe_exception_67
+    .quad wicofe_exception_68
+    .quad wicofe_exception_69
+    .quad wicofe_exception_70
+    .quad wicofe_exception_71
+    .quad wicofe_exception_72
+    .quad wicofe_exception_73
+    .quad wicofe_exception_74
+    .quad wicofe_exception_75
+    .quad wicofe_exception_76
+    .quad wicofe_exception_77
+    .quad wicofe_exception_78
+    .quad wicofe_exception_79
+    .quad wicofe_exception_80
+    .quad wicofe_exception_81
+    .quad wicofe_exception_82
+    .quad wicofe_exception_83
+    .quad wicofe_exception_84
+    .quad wicofe_exception_85
+    .quad wicofe_exception_86
+    .quad wicofe_exception_87
+    .quad wicofe_exception_88
+    .quad wicofe_exception_89
+    .quad wicofe_exception_90
+    .quad wicofe_exception_91
+    .quad wicofe_exception_92
+    .quad wicofe_exception_93
+    .quad wicofe_exception_94
+    .quad wicofe_exception_95
+    .quad wicofe_exception_96
+    .quad wicofe_exception_97
+    .quad wicofe_exception_98
+    .quad wicofe_exception_99
+    .quad wicofe_exception_100
+    .quad wicofe_exception_101
+    .quad wicofe_exception_102
+    .quad wicofe_exception_103
+    .quad wicofe_exception_104
+    .quad wicofe_exception_105
+    .quad wicofe_exception_106
+    .quad wicofe_exception_107
+    .quad wicofe_exception_108
+    .quad wicofe_exception_109
+    .quad wicofe_exception_110
+    .quad wicofe_exception_111
+    .quad wicofe_exception_112
+    .quad wicofe_exception_113
+    .quad wicofe_exception_114
+    .quad wicofe_exception_115
+    .quad wicofe_exception_116
+    .quad wicofe_exception_117
+    .quad wicofe_exception_118
+    .quad wicofe_exception_119
+    .quad wicofe_exception_120
+    .quad wicofe_exception_121
+    .quad wicofe_exception_122
+    .quad wicofe_exception_123
+    .quad wicofe_exception_124
+    .quad wicofe_exception_125
+    .quad wicofe_exception_126
+    .quad wicofe_exception_127
+    .quad wicofe_exception_128
+    .quad wicofe_exception_129
+    .quad wicofe_exception_130
+    .quad wicofe_exception_131
+    .quad wicofe_exception_132
+    .quad wicofe_exception_133
+    .quad wicofe_exception_134
+    .quad wicofe_exception_135
+    .quad wicofe_exception_136
+    .quad wicofe_exception_137
+    .quad wicofe_exception_138
+    .quad wicofe_exception_139
+    .quad wicofe_exception_140
+    .quad wicofe_exception_141
+    .quad wicofe_exception_142
+    .quad wicofe_exception_143
+    .quad wicofe_exception_144
+    .quad wicofe_exception_145
+    .quad wicofe_exception_146
+    .quad wicofe_exception_147
+    .quad wicofe_exception_148
+    .quad wicofe_exception_149
+    .quad wicofe_exception_150
+    .quad wicofe_exception_151
+    .quad wicofe_exception_152
+    .quad wicofe_exception_153
+    .quad wicofe_exception_154
+    .quad wicofe_exception_155
+    .quad wicofe_exception_156
+    .quad wicofe_exception_157
+    .quad wicofe_exception_158
+    .quad wicofe_exception_159
+    .quad wicofe_exception_160
+    .quad wicofe_exception_161
+    .quad wicofe_exception_162
+    .quad wicofe_exception_163
+    .quad wicofe_exception_164
+    .quad wicofe_exception_165
+    .quad wicofe_exception_166
+    .quad wicofe_exception_167
+    .quad wicofe_exception_168
+    .quad wicofe_exception_169
+    .quad wicofe_exception_170
+    .quad wicofe_exception_171
+    .quad wicofe_exception_172
+    .quad wicofe_exception_173
+    .quad wicofe_exception_174
+    .quad wicofe_exception_175
+    .quad wicofe_exception_176
+    .quad wicofe_exception_177
+    .quad wicofe_exception_178
+    .quad wicofe_exception_179
+    .quad wicofe_exception_180
+    .quad wicofe_exception_181
+    .quad wicofe_exception_182
+    .quad wicofe_exception_183
+    .quad wicofe_exception_184
+    .quad wicofe_exception_185
+    .quad wicofe_exception_186
+    .quad wicofe_exception_187
+    .quad wicofe_exception_188
+    .quad wicofe_exception_189
+    .quad wicofe_exception_190
+    .quad wicofe_exception_191
+    .quad wicofe_exception_192
+    .quad wicofe_exception_193
+    .quad wicofe_exception_194
+    .quad wicofe_exception_195
+    .quad wicofe_exception_196
+    .quad wicofe_exception_197
+    .quad wicofe_exception_198
+    .quad wicofe_exception_199
+    .quad wicofe_exception_200
+    .quad wicofe_exception_201
+    .quad wicofe_exception_202
+    .quad wicofe_exception_203
+    .quad wicofe_exception_204
+    .quad wicofe_exception_205
+    .quad wicofe_exception_206
+    .quad wicofe_exception_207
+    .quad wicofe_exception_208
+    .quad wicofe_exception_209
+    .quad wicofe_exception_210
+    .quad wicofe_exception_211
+    .quad wicofe_exception_212
+    .quad wicofe_exception_213
+    .quad wicofe_exception_214
+    .quad wicofe_exception_215
+    .quad wicofe_exception_216
+    .quad wicofe_exception_217
+    .quad wicofe_exception_218
+    .quad wicofe_exception_219
+    .quad wicofe_exception_220
+    .quad wicofe_exception_221
+    .quad wicofe_exception_222
+    .quad wicofe_exception_223
+    .quad wicofe_exception_224
+    .quad wicofe_exception_225
+    .quad wicofe_exception_226
+    .quad wicofe_exception_227
+    .quad wicofe_exception_228
+    .quad wicofe_exception_229
+    .quad wicofe_exception_230
+    .quad wicofe_exception_231
+    .quad wicofe_exception_232
+    .quad wicofe_exception_233
+    .quad wicofe_exception_234
+    .quad wicofe_exception_235
+    .quad wicofe_exception_236
+    .quad wicofe_exception_237
+    .quad wicofe_exception_238
+    .quad wicofe_exception_239
+    .quad wicofe_exception_240
+    .quad wicofe_exception_241
+    .quad wicofe_exception_242
+    .quad wicofe_exception_243
+    .quad wicofe_exception_244
+    .quad wicofe_exception_245
+    .quad wicofe_exception_246
+    .quad wicofe_exception_247
+    .quad wicofe_exception_248
+    .quad wicofe_exception_249
+    .quad wicofe_exception_250
+    .quad wicofe_exception_251
+    .quad wicofe_exception_252
+    .quad wicofe_exception_253
+    .quad wicofe_exception_254
+    .quad wicofe_exception_255
+    .size wicofe_interrupt_stub_table, . - wicofe_interrupt_stub_table
+    .section .text
     "#,
     options(att_syntax)
 );
@@ -350,7 +798,7 @@ static mut BOOT_IDT: InterruptDescriptorTable = InterruptDescriptorTable::new();
 
 #[cfg(target_os = "none")]
 unsafe extern "C" {
-    fn wicofe_unhandled_interrupt();
+    static wicofe_interrupt_stub_table: [u64; 224];
     fn wicofe_exception_0();
     fn wicofe_exception_1();
     fn wicofe_exception_2();
@@ -387,9 +835,9 @@ unsafe extern "C" {
 
 /// Populate and load the complete fail-stop IDT on the bootstrap CPU.
 ///
-/// All vectors 0-31 use their normalized exception stubs. Vectors 32-255
-/// share a terminal fallback stub until device-specific interrupt handlers
-/// are introduced. The fallback reports vector 255 as an "unhandled" marker.
+/// All 256 vectors use distinct normalized entry stubs. Vectors 0-31 are
+/// CPU exception stubs; vectors 32-255 are terminal interrupt stubs that
+/// preserve the actual vector number until device-specific handlers exist.
 ///
 /// # Safety
 /// Must run once on the bootstrap CPU at ring 0, with interrupts disabled.
@@ -445,7 +893,11 @@ pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
         wicofe_exception_30 as *const () as u64,
         wicofe_exception_31 as *const () as u64,
     ];
-    let fallback_handler = wicofe_unhandled_interrupt as *const () as u64;
+    // SAFETY: The assembly exports exactly 224 pointer-sized entries for
+    // vectors 32-255; each points to its corresponding normalized stub.
+    let interrupt_handlers = unsafe {
+        core::ptr::addr_of!(wicofe_interrupt_stub_table)
+    };
 
     // SAFETY: The function's single-call contract grants exclusive access to
     // this static table before it is installed on the bootstrap CPU.
@@ -454,7 +906,8 @@ pub unsafe fn initialize_and_load() -> Result<(), IdtError> {
         let handler = if vector < exception_handlers.len() {
             exception_handlers[vector]
         } else {
-            fallback_handler
+            // SAFETY: vector is in 32..256, so the table index is in 0..224.
+            unsafe { interrupt_handlers.read().add(vector - 32).read() }
         };
         let ist = if vector == 8 {
             crate::arch::x86_64::gdt::DOUBLE_FAULT_IST
