@@ -8,6 +8,7 @@
 pub mod gdt;
 pub mod interrupts;
 pub mod paging;
+pub mod pic;
 
 /// Architecture identifier used by early diagnostics.
 pub const ARCH_NAME: &str = "x86_64";
