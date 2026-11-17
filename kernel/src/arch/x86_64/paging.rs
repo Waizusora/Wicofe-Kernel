@@ -19,6 +19,27 @@ const GLOBAL: u64 = 1 << 8;
 const NO_EXECUTE: u64 = 1 << 63;
 const PAGE_OFFSET_MASK: u64 = 0xfff;
 
+/// Invalidate one translation in the current CPU's TLB.
+///
+/// This is a local-CPU primitive only. It does not send IPIs, invalidate
+/// translations on other CPUs, or synchronize concurrent page-table writes.
+///
+/// # Safety
+/// The address must be canonical for the active paging mode. The caller must
+/// have completed the corresponding page-table update with the required
+/// synchronization and must ensure that no other CPU can retain or use a
+/// stale translation. This function is privileged and may only run at ring 0.
+pub unsafe fn invalidate_page_local(address: VirtAddr) {
+    // SAFETY: The caller guarantees ring-0 execution and a canonical address.
+    unsafe {
+        core::arch::asm!(
+            "invlpg [{}]",
+            in(reg) address.get(),
+            options(nostack, preserves_flags)
+        );
+    }
+}
+
 /// Errors returned while encoding x86-64 paging structures.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum X86PagingError {
