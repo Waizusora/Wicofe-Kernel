@@ -34,10 +34,7 @@ pub fn divisor_for_frequency(frequency_hz: u32) -> Result<u16, PitError> {
 }
 
 /// Program channel 0 in periodic square-wave mode.
-pub fn program_periodic_with_io<I: PitIo>(
-    io: &mut I,
-    frequency_hz: u32,
-) -> Result<u16, PitError> {
+pub fn program_periodic_with_io<I: PitIo>(io: &mut I, frequency_hz: u32) -> Result<u16, PitError> {
     let divisor = divisor_for_frequency(frequency_hz)?;
     io.write_u8(COMMAND, CHANNEL0_SQUARE_WAVE);
     io.write_u8(CHANNEL0_DATA, divisor as u8);
@@ -98,10 +95,7 @@ mod tests {
     #[test]
     fn rejects_zero_and_out_of_range_frequencies() {
         assert_eq!(divisor_for_frequency(0), Err(PitError::ZeroFrequency));
-        assert_eq!(
-            divisor_for_frequency(1),
-            Err(PitError::FrequencyOutOfRange)
-        );
+        assert_eq!(divisor_for_frequency(1), Err(PitError::FrequencyOutOfRange));
         assert_eq!(
             divisor_for_frequency(INPUT_FREQUENCY_HZ + 1),
             Err(PitError::FrequencyOutOfRange)
