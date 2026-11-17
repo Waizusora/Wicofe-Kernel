@@ -149,6 +149,30 @@ jobs:
             echo "Kernel reported a bootstrap failure"
             exit 1
           fi
+      - name: Build PIT IRQ smoke-test kernel
+        run: cargo build -p wicofe-kernel --features kernel-image,irq-smoke-pit --bin wicofe-kernel --target x86_64-unknown-none
+      - name: Build PIT IRQ smoke-test ISO
+        run: scripts/build_limine_iso.sh target/wicofe-x86_64-irq-pit-smoke.iso
+      - name: Verify PIT IRQ dispatch and IRETQ in QEMU
+        run: |
+          set +e
+          timeout 20s qemu-system-x86_64 \
+            -machine q35 -m 512M -cdrom target/wicofe-x86_64-irq-pit-smoke.iso -boot d \
+            -display none -serial file:target/qemu-irq-pit-serial.log \
+            -no-reboot -no-shutdown
+          qemu_status=$?
+          set -e
+          if [[ "$qemu_status" -ne 124 ]]; then
+            echo "QEMU did not remain in the kernel after the IRQ smoke test (status $qemu_status)"
+            cat target/qemu-irq-pit-serial.log || true
+            exit 1
+          fi
+          cat target/qemu-irq-pit-serial.log
+          grep -Fq "WICOFE: IRQ_PIT_SMOKE_OK" target/qemu-irq-pit-serial.log
+          if grep -Fq "WICOFE: IRQ_PIT_SMOKE_FAILED" target/qemu-irq-pit-serial.log; then
+            echo "PIT IRQ smoke test failed"
+            exit 1
+          fi
       - name: Build x86-64 exception smoke-test kernel
         run: cargo build -p wicofe-kernel --features kernel-image,exception-smoke-int3 --bin wicofe-kernel --target x86_64-unknown-none
       - name: Build exception smoke-test ISO
