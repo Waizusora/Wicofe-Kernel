@@ -234,7 +234,7 @@ fn verify_irq_dispatch_with_pit() -> bool {
     early_serial_write_str("WICOFE: IRQ_PIT_UNMASKED\n");
 
     // STI is confined to this build-only smoke test. A bounded polling loop
-    // prevents a missing IRQ from leaving QEMU blocked forever in HLT.
+    // makes a missing IRQ produce a deterministic failure marker.
     early_serial_write_str("WICOFE: IRQ_PIT_WAITING\n");
     unsafe { core::arch::asm!("sti", options(nostack)) };
     for _ in 0..10_000_000 {
