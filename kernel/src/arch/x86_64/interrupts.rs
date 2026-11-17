@@ -192,7 +192,6 @@ const fn is_canonical_48(address: u64) -> bool {
 /// The assembly saves GPRs in reverse order, then the normalized vector and
 /// error code, followed by the CPU-pushed instruction frame. This structure
 /// describes same-privilege exceptions; RSP/SS are not present in that case.
-#[cfg(target_os = "none")]
 #[repr(C)]
 struct ExceptionStackFrame {
     r15: u64,
@@ -220,6 +219,20 @@ struct ExceptionStackFrame {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exception_stack_frame_matches_assembly_push_order() {
+        use core::mem::{offset_of, size_of};
+
+        assert_eq!(size_of::<ExceptionStackFrame>(), 20 * size_of::<u64>());
+        assert_eq!(offset_of!(ExceptionStackFrame, r15), 0);
+        assert_eq!(offset_of!(ExceptionStackFrame, rax), 14 * 8);
+        assert_eq!(offset_of!(ExceptionStackFrame, vector), 15 * 8);
+        assert_eq!(offset_of!(ExceptionStackFrame, error_code), 16 * 8);
+        assert_eq!(offset_of!(ExceptionStackFrame, instruction_pointer), 17 * 8);
+        assert_eq!(offset_of!(ExceptionStackFrame, code_segment), 18 * 8);
+        assert_eq!(offset_of!(ExceptionStackFrame, rflags), 19 * 8);
+    }
 
     #[test]
     fn gate_descriptor_encodes_and_decodes_all_fields() {
