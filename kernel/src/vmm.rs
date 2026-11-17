@@ -48,6 +48,7 @@ pub enum VmmError {
     MappingOutsideAddressSpace,
     UserMappingInKernelHalf,
     KernelMappingInUserHalf,
+    MappingMustContainSinglePage,
 }
 
 /// Canonical-address rules for a configured virtual-address width.
