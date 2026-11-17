@@ -312,6 +312,61 @@ wicofe_exception_\number:
     .size wicofe_exception_\number, . - wicofe_exception_\number
     .endm
 
+    .macro WICOFE_IRQ_NOERR number
+    .global wicofe_irq_\\number
+    .type wicofe_irq_\\number,@function
+wicofe_irq_\\number:
+    pushq $0
+    pushq $\\number
+    jmp wicofe_irq_common
+    .size wicofe_irq_\\number, . - wicofe_irq_\\number
+    .endm
+
+    .global wicofe_irq_common
+    .type wicofe_irq_common,@function
+wicofe_irq_common:
+    cld
+    pushq %rax
+    pushq %rbx
+    pushq %rcx
+    pushq %rdx
+    pushq %rbp
+    pushq %rsi
+    pushq %rdi
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    pushq %r11
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
+
+    movq %rsp, %r12
+    movq 120(%rsp), %rdi
+    movq %rsp, %rsi
+    andq $-16, %rsp
+    call wicofe_irq_dispatch
+    movq %r12, %rsp
+
+    popq %r15
+    popq %r14
+    popq %r13
+    popq %r12
+    popq %r11
+    popq %r10
+    popq %r9
+    popq %r8
+    popq %rdi
+    popq %rsi
+    popq %rbp
+    popq %rdx
+    popq %rcx
+    popq %rbx
+    popq %rax
+    addq $16, %rsp
+    iretq
+    .size wicofe_irq_common, . - wicofe_irq_common
     .global wicofe_exception_common
     .type wicofe_exception_common,@function
 wicofe_exception_common:
@@ -375,6 +430,22 @@ wicofe_exception_common:
     WICOFE_ISR_ERR   29
     WICOFE_ISR_ERR   30
     WICOFE_ISR_NOERR 31
+    WICOFE_IRQ_NOERR 32
+    WICOFE_IRQ_NOERR 33
+    WICOFE_IRQ_NOERR 34
+    WICOFE_IRQ_NOERR 35
+    WICOFE_IRQ_NOERR 36
+    WICOFE_IRQ_NOERR 37
+    WICOFE_IRQ_NOERR 38
+    WICOFE_IRQ_NOERR 39
+    WICOFE_IRQ_NOERR 40
+    WICOFE_IRQ_NOERR 41
+    WICOFE_IRQ_NOERR 42
+    WICOFE_IRQ_NOERR 43
+    WICOFE_IRQ_NOERR 44
+    WICOFE_IRQ_NOERR 45
+    WICOFE_IRQ_NOERR 46
+    WICOFE_IRQ_NOERR 47
     WICOFE_ISR_NOERR 32
     WICOFE_ISR_NOERR 33
     WICOFE_ISR_NOERR 34
@@ -605,22 +676,22 @@ wicofe_exception_common:
     .global wicofe_interrupt_stub_table
     .type wicofe_interrupt_stub_table,@object
 wicofe_interrupt_stub_table:
-    .quad wicofe_exception_32
-    .quad wicofe_exception_33
-    .quad wicofe_exception_34
-    .quad wicofe_exception_35
-    .quad wicofe_exception_36
-    .quad wicofe_exception_37
-    .quad wicofe_exception_38
-    .quad wicofe_exception_39
-    .quad wicofe_exception_40
-    .quad wicofe_exception_41
-    .quad wicofe_exception_42
-    .quad wicofe_exception_43
-    .quad wicofe_exception_44
-    .quad wicofe_exception_45
-    .quad wicofe_exception_46
-    .quad wicofe_exception_47
+    .quad wicofe_irq_32
+    .quad wicofe_irq_33
+    .quad wicofe_irq_34
+    .quad wicofe_irq_35
+    .quad wicofe_irq_36
+    .quad wicofe_irq_37
+    .quad wicofe_irq_38
+    .quad wicofe_irq_39
+    .quad wicofe_irq_40
+    .quad wicofe_irq_41
+    .quad wicofe_irq_42
+    .quad wicofe_irq_43
+    .quad wicofe_irq_44
+    .quad wicofe_irq_45
+    .quad wicofe_irq_46
+    .quad wicofe_irq_47
     .quad wicofe_exception_48
     .quad wicofe_exception_49
     .quad wicofe_exception_50
@@ -878,9 +949,8 @@ unsafe extern "C" {
 
 /// Populate and load the complete fail-stop IDT on the bootstrap CPU.
 ///
-/// All 256 vectors use distinct normalized entry stubs. Vectors 0-31 are
-/// CPU exception stubs; vectors 32-255 are terminal interrupt stubs that
-/// preserve the actual vector number until device-specific handlers exist.
+/// Vectors 0-31 use fatal CPU exception stubs. Legacy IRQ vectors 32-47 use
+/// a returning IRETQ path; vectors 48-255 remain terminal interrupt stubs.
 ///
 /// # Safety
 /// Must run once on the bootstrap CPU at ring 0, with interrupts disabled.
