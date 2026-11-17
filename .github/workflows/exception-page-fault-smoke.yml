@@ -1,0 +1,53 @@
+name: x86-64 page fault smoke test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  page-fault-smoke:
+    name: Page fault and CR2 path in QEMU
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install pinned system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes \
+            clang-22=1:22.1.2-1ubuntu1 \
+            qemu-system-x86=1:10.2.1+ds-1ubuntu3.3 \
+            xorriso=1:1.5.6-1.1ubuntu4
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable source commit
+        with:
+          toolchain: 1.100.0
+          targets: x86_64-unknown-none
+      - name: Build page fault smoke-test kernel
+        run: cargo build -p wicofe-kernel --features kernel-image,exception-smoke-page-fault --bin wicofe-kernel --target x86_64-unknown-none
+      - name: Build page fault smoke-test ISO
+        run: scripts/build_limine_iso.sh target/wicofe-x86_64-page-fault-smoke.iso
+      - name: Verify page fault and CR2 in QEMU
+        run: |
+          set +e
+          timeout 15s qemu-system-x86_64 \
+            -machine q35 -m 512M -cdrom target/wicofe-x86_64-page-fault-smoke.iso -boot d \
+            -display none -serial file:target/qemu-page-fault-serial.log \
+            -no-reboot -no-shutdown
+          qemu_status=$?
+          set -e
+          if [[ "$qemu_status" -ne 124 ]]; then
+            echo "QEMU did not remain halted in the fatal page-fault path (status $qemu_status)"
+            cat target/qemu-page-fault-serial.log || true
+            exit 1
+          fi
+          cat target/qemu-page-fault-serial.log
+          grep -Fq "WICOFE: EXCEPTION_SMOKE_PAGE_FAULT" target/qemu-page-fault-serial.log
+          grep -Fq "CPU exception: vector=14" target/qemu-page-fault-serial.log
+          grep -Fq "cr2=0x400000000000" target/qemu-page-fault-serial.log
