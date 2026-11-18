@@ -22,7 +22,13 @@ pub struct UserContext {
 
 impl Default for UserContext {
     fn default() -> Self {
-        Self { x: [0; 31], sp_el0: 0, elr_el1: 0, spsr_el1: 0, tpidr_el0: 0 }
+        Self {
+            x: [0; 31],
+            sp_el0: 0,
+            elr_el1: 0,
+            spsr_el1: 0,
+            tpidr_el0: 0,
+        }
     }
 }
 
@@ -54,7 +60,10 @@ mod tests {
 
     #[test]
     fn context_identifies_el0t_return_mode() {
-        let mut context = UserContext { spsr_el1: 0, ..UserContext::default() };
+        let mut context = UserContext {
+            spsr_el1: 0,
+            ..UserContext::default()
+        };
         assert!(context.returns_to_el0t());
         context.spsr_el1 = 0b0101;
         assert!(!context.returns_to_el0t());
