@@ -66,7 +66,11 @@ mod tests {
 
     #[test]
     fn user_selector_check_requires_ring_three() {
-        let mut context = UserContext { cs: 0x2b, ss: 0x23, ..UserContext::default() };
+        let mut context = UserContext {
+            cs: 0x2b,
+            ss: 0x23,
+            ..UserContext::default()
+        };
         assert!(context.has_user_privilege_selectors());
         context.cs = 0x08;
         assert!(!context.has_user_privilege_selectors());
