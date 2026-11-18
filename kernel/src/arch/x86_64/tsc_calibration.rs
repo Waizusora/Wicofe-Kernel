@@ -97,15 +97,13 @@ pub fn calibrate(
         .checked_mul(PPM_SCALE)
         .ok_or(CalibrationError::ArithmeticOverflow)?
         / median as u128;
-    let spread_ppm =
-        u32::try_from(spread_ppm).map_err(|_| CalibrationError::ArithmeticOverflow)?;
+    let spread_ppm = u32::try_from(spread_ppm).map_err(|_| CalibrationError::ArithmeticOverflow)?;
 
     if spread_ppm > max_spread_ppm {
         return Err(CalibrationError::SpreadExceeded);
     }
 
-    let frequency =
-        TscFrequency::new(median, 1).ok_or(CalibrationError::ArithmeticOverflow)?;
+    let frequency = TscFrequency::new(median, 1).ok_or(CalibrationError::ArithmeticOverflow)?;
     Ok(CalibrationResult {
         frequency,
         spread_ppm,
@@ -120,8 +118,7 @@ mod tests {
     fn sample_for_hz(hz: u64) -> CalibrationSample {
         // Use a 10 ms PIT interval, exactly 11,931 PIT input cycles.
         let pit_ticks = 11_931_u32;
-        let tsc_ticks = ((hz as u128 * pit_ticks as u128)
-            / INPUT_FREQUENCY_HZ as u128) as u64;
+        let tsc_ticks = ((hz as u128 * pit_ticks as u128) / INPUT_FREQUENCY_HZ as u128) as u64;
         CalibrationSample {
             tsc_ticks,
             pit_ticks,
@@ -138,8 +135,7 @@ mod tests {
         let result = calibrate(&samples, 2_000).unwrap();
         assert_eq!(result.samples_used, 3);
         assert_eq!(result.frequency.denominator(), 1);
-        assert!((2_399_000_000..=2_403_000_000)
-            .contains(&result.frequency.numerator_hz()));
+        assert!((2_399_000_000..=2_403_000_000).contains(&result.frequency.numerator_hz()));
     }
 
     #[test]
@@ -199,13 +195,10 @@ mod tests {
 
     #[test]
     fn rejects_frequency_arithmetic_overflow() {
-        let samples = [
-            CalibrationSample {
-                tsc_ticks: u64::MAX,
-                pit_ticks: 1,
-            };
-            3
-        ];
+        let samples = [CalibrationSample {
+            tsc_ticks: u64::MAX,
+            pit_ticks: 1,
+        }; 3];
         assert_eq!(
             calibrate(&samples, u32::MAX),
             Err(CalibrationError::ArithmeticOverflow)
