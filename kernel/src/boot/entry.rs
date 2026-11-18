@@ -251,11 +251,13 @@ fn verify_irq_dispatch_with_pit() -> bool {
         return false;
     }
     early_serial_write_str("WICOFE: IRQ_PIT_IF_ENABLED\n");
-    for _ in 0..10_000_000 {
+    // HLT yields until the PIT interrupt wakes the CPU. A missing IRQ is
+    // bounded by the outer QEMU timeout instead of a CPU-speed-dependent spin.
+    for _ in 0..1_000 {
         if IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0 {
             break;
         }
-        core::hint::spin_loop();
+        unsafe { core::arch::asm!("hlt", options(nomem, nostack)) };
     }
     // SAFETY: Disable interrupts before changing the PIC mask.
     unsafe { core::arch::asm!("cli", options(nostack)) };
