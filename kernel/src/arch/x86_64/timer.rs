@@ -111,7 +111,7 @@ pub fn frequency_hz() -> Option<u32> {
         return None;
     }
     let divisor = PIT_DIVISOR.load(Ordering::Acquire);
-    Some(pit::INPUT_FREQUENCY_HZ / divisor)
+    Some(super::pit::INPUT_FREQUENCY_HZ / divisor)
 }
 
 /// Return tick-derived monotonic uptime in milliseconds, if initialized.
