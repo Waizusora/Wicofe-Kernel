@@ -149,8 +149,12 @@ pub fn detect() -> TscCapabilities {
 ///
 /// The LFENCE/RDTSC/LFENCE sequence constrains execution around the sample.
 /// It does not establish synchronization with another logical processor.
+///
+/// # Safety
+/// The caller must first establish that CPUID reports TSC support on this
+/// logical processor. Calling RDTSC without TSC support raises #UD.
 #[inline]
-pub fn read() -> u64 {
+pub unsafe fn read_unchecked() -> u64 {
     let low: u32;
     let high: u32;
     // SAFETY: RDTSC is available on x86-64. LFENCE is available in long mode.
