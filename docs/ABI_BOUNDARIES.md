@@ -45,6 +45,19 @@ Pointers supplied by userspace are untrusted. The kernel must validate ranges, a
 
 The native C runtime is **Wlibc**, which targets the declared ISO C/POSIX profile and consumes this ABI. It does not define a parallel syscall ABI. POSIX interfaces may be composed from multiple syscalls or implemented in a separate userspace POSIX layer; only actual kernel mechanisms belong in this ABI.
 
+### 3.1 Current raw syscall convention review
+
+Wicofe-ABI has a candidate x86-64/AArch64 convention using the carry condition as an out-of-band error discriminator. The [proposal](https://github.com/Waizusora/Wicofe-ABI/blob/main/docs/SYSCALL_CALLING_CONVENTION_PROPOSAL_0.1.md) remains Proposed. Its [technical review](https://github.com/Waizusora/Wicofe-ABI/blob/main/docs/SYSCALL_CONVENTION_TECHNICAL_REVIEW_0.1.md) records mandatory kernel obligations:
+
+- Save the user return state before kernel instructions alter condition flags.
+- Set the result carry bit in the final saved return context, after all flag-changing kernel work.
+- On x86-64, validate the return address and provide a safe IRETQ path where SYSRETQ is not valid.
+- On AArch64, update the saved SPSR_EL1.C value immediately before ERET.
+- Preserve and restore the specified state across interrupts, preemption, and signal delivery/return.
+- Test optimized GCC and Clang syscall stubs that capture the carry result inside the same assembly boundary as the trap instruction.
+
+These are design and validation requirements only. Kernel code must not implement or assume the proposal until Wicofe-ABI explicitly adopts it.
+
 ## 4. DKM ABI rules
 
 A DKM executes with kernel privilege. ABI validation prevents accidental incompatibility; it does not sandbox a malicious or defective module.
