@@ -11,6 +11,7 @@ extern crate std;
 
 pub mod arch;
 pub mod boot;
+pub mod drivers;
 pub mod hal;
 pub mod memory;
 pub mod pmm;
