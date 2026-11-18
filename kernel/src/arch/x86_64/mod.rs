@@ -12,6 +12,7 @@ pub mod paging;
 pub mod pic;
 pub mod pit;
 pub mod timer;
+pub mod tsc;
 pub mod user_context;
 
 /// Architecture identifier used by early diagnostics.
