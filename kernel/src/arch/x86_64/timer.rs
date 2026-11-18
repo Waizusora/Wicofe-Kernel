@@ -118,19 +118,40 @@ pub fn frequency_hz() -> Option<u32> {
 
 /// Return tick-derived monotonic uptime in milliseconds, if initialized.
 pub fn uptime_millis() -> Option<u64> {
+    uptime_units(1_000)
+}
+
+/// Return tick-derived monotonic uptime in microseconds, if initialized.
+pub fn uptime_micros() -> Option<u64> {
+    uptime_units(1_000_000)
+}
+
+/// Return tick-derived monotonic uptime in nanoseconds, if initialized.
+///
+/// Values are quantized to PIT IRQ periods and saturate at `u64::MAX`.
+pub fn uptime_nanos() -> Option<u64> {
+    uptime_units(1_000_000_000)
+}
+
+fn uptime_units(units_per_second: u64) -> Option<u64> {
     if !is_initialized() {
         return None;
     }
-    ticks_to_millis(ticks(), PIT_DIVISOR.load(Ordering::Acquire))
+    ticks_to_units(
+        ticks(),
+        PIT_DIVISOR.load(Ordering::Acquire),
+        units_per_second,
+    )
 }
 
-fn ticks_to_millis(ticks: u64, divisor: u32) -> Option<u64> {
-    if divisor == 0 {
+fn ticks_to_units(ticks: u64, divisor: u32, units_per_second: u64) -> Option<u64> {
+    if divisor == 0 || units_per_second == 0 {
         return None;
     }
     let elapsed_cycles = ticks as u128 * divisor as u128;
-    let millis = (elapsed_cycles * 1_000) / super::pit::INPUT_FREQUENCY_HZ as u128;
-    Some(millis.min(u64::MAX as u128) as u64)
+    let units = (elapsed_cycles * units_per_second as u128)
+        / super::pit::INPUT_FREQUENCY_HZ as u128;
+    Some(units.min(u64::MAX as u128) as u64)
 }
 
 #[cfg(test)]
@@ -147,15 +168,25 @@ mod tests {
     }
 
     #[test]
-    fn converts_ticks_to_milliseconds_without_float_math() {
-        assert_eq!(ticks_to_millis(0, 11_931), Some(0));
-        assert_eq!(ticks_to_millis(1, 11_931), Some(9));
-        assert_eq!(ticks_to_millis(100, 11_931), Some(999));
-        assert_eq!(ticks_to_millis(u64::MAX, u16::MAX as u32), Some(u64::MAX));
+    fn converts_ticks_to_millisecond_microsecond_and_nanosecond_units() {
+        assert_eq!(ticks_to_units(0, 11_931, 1_000), Some(0));
+        assert_eq!(ticks_to_units(1, 11_931, 1_000), Some(9));
+        assert_eq!(ticks_to_units(100, 11_931, 1_000), Some(999));
+        assert_eq!(ticks_to_units(1, 11_931, 1_000_000), Some(9_998));
+        assert_eq!(ticks_to_units(1, 11_931, 1_000_000_000), Some(9_998_473));
     }
 
     #[test]
-    fn rejects_zero_frequency_for_uptime_conversion() {
-        assert_eq!(ticks_to_millis(10, 0), None);
+    fn uptime_conversion_rejects_zero_divisor_or_unit_scale() {
+        assert_eq!(ticks_to_units(10, 0, 1_000), None);
+        assert_eq!(ticks_to_units(10, 11_931, 0), None);
+    }
+
+    #[test]
+    fn uptime_conversion_saturates_instead_of_overflowing() {
+        assert_eq!(
+            ticks_to_units(u64::MAX, u16::MAX as u32, 1_000_000_000),
+            Some(u64::MAX)
+        );
     }
 }
