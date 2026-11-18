@@ -174,6 +174,86 @@ mod tests {
         }
     }
 
+    struct MockPit {
+        control: u8,
+        polls_until_expiry: Option<u32>,
+        polls: u32,
+        writes: std::vec::Vec<(u16, u8)>,
+    }
+
+    impl super::super::pit::PitIo for MockPit {
+        fn write_u8(&mut self, port: u16, value: u8) {
+            self.writes.push((port, value));
+            if port == 0x61 {
+                self.control = value;
+            }
+        }
+    }
+
+    impl PitChannel2Io for MockPit {
+        fn read_u8(&mut self, port: u16) -> u8 {
+            if port == 0x61 {
+                self.polls += 1;
+                if self.polls_until_expiry.is_some_and(|limit| self.polls > limit) {
+                    self.control |= 1 << 5;
+                }
+                self.control
+            } else {
+                0
+            }
+        }
+    }
+
+    #[test]
+    fn bounded_sampler_returns_delta_and_restores_control() {
+        let mut pit = MockPit {
+            control: 0b1000_0010,
+            polls_until_expiry: Some(2),
+            polls: 0,
+            writes: std::vec::Vec::new(),
+        };
+        let mut reads = [100_u64, 1_000_u64].into_iter();
+        let sample = measure_sample_with_io(&mut pit, 10_000, 8, || reads.next().unwrap())
+            .unwrap();
+        assert_eq!(sample.tsc_ticks, 900);
+        assert_eq!(sample.pit_ticks, 10_000);
+        assert_eq!(pit.control, 0b1000_0010);
+        assert_eq!(pit.writes.last(), Some(&(0x61, 0b1000_0010)));
+    }
+
+    #[test]
+    fn bounded_sampler_timeout_restores_control() {
+        let mut pit = MockPit {
+            control: 0b0100_0010,
+            polls_until_expiry: None,
+            polls: 0,
+            writes: std::vec::Vec::new(),
+        };
+        assert_eq!(
+            measure_sample_with_io(&mut pit, 10_000, 3, || 100),
+            Err(CalibrationError::Timeout)
+        );
+        assert_eq!(pit.polls, 3);
+        assert_eq!(pit.control, 0b0100_0010);
+        assert_eq!(pit.writes.last(), Some(&(0x61, 0b0100_0010)));
+    }
+
+    #[test]
+    fn bounded_sampler_rejects_zero_budget_without_io() {
+        let mut pit = MockPit {
+            control: 0x02,
+            polls_until_expiry: None,
+            polls: 0,
+            writes: std::vec::Vec::new(),
+        };
+        assert_eq!(
+            measure_sample_with_io(&mut pit, 10_000, 0, || 100),
+            Err(CalibrationError::ZeroPollBudget)
+        );
+        assert!(pit.writes.is_empty());
+        assert_eq!(pit.polls, 0);
+    }
+
     #[test]
     fn computes_median_frequency_from_three_samples() {
         let samples = [
