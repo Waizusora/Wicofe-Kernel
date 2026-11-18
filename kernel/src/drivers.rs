@@ -252,6 +252,8 @@ pub struct DeviceRecord {
     pub id: DeviceId,
     /// Validated, normalized discovery identity.
     pub identity: DeviceIdentity,
+    /// Selected driver, absent until a successful match.
+    pub driver: Option<DriverId>,
     /// Current driver lifecycle state.
     pub state: DeviceState,
 }
@@ -321,6 +323,7 @@ impl<const N: usize> DeviceRegistry<N> {
         *slot = Some(DeviceRecord {
             id,
             identity,
+            driver: None,
             state: DeviceState::Discovered,
         });
         self.len += 1;
@@ -334,6 +337,38 @@ impl<const N: usize> DeviceRegistry<N> {
             .flatten()
             .find(|record| record.id == id)
             .copied()
+    }
+
+    /// Bind a matching driver to a discovered device.
+    ///
+    /// Binding only records the selected driver and advances the lifecycle to
+    /// `Matched`; it does not invoke driver code or acquire hardware resources.
+    pub fn bind_driver(
+        &mut self,
+        id: DeviceId,
+        driver: DriverDescriptor,
+    ) -> Result<(), DeviceBindError> {
+        let record = self
+            .entries
+            .iter_mut()
+            .flatten()
+            .find(|record| record.id == id)
+            .ok_or(DeviceBindError::DeviceNotFound(id))?;
+
+        if record.state != DeviceState::Discovered || record.driver.is_some() {
+            return Err(DeviceBindError::DeviceAlreadyBound(id));
+        }
+        if !driver.supports(record.identity) {
+            return Err(DeviceBindError::DriverDoesNotMatch {
+                device: id,
+                driver: driver.id,
+            });
+        }
+
+        transition(&mut record.state, DeviceState::Matched)
+            .map_err(DeviceBindError::Lifecycle)?;
+        record.driver = Some(driver.id);
+        Ok(())
     }
 
     /// Apply a validated lifecycle transition to a registered device.
@@ -376,6 +411,130 @@ impl<const N: usize> Default for DeviceRegistry<N> {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Errors returned while binding a driver to a device.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeviceBindError {
+    /// The device is not registered.
+    DeviceNotFound(DeviceId),
+    /// The device has already advanced beyond discovery or has a driver.
+    DeviceAlreadyBound(DeviceId),
+    /// The descriptor does not match the device identity.
+    DriverDoesNotMatch {
+        /// Device being bound.
+        device: DeviceId,
+        /// Rejected driver.
+        driver: DriverId,
+    },
+    /// The lifecycle transition could not be applied.
+    Lifecycle(LifecycleError),
+}
+
+/// Errors returned by the bounded driver registry.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DriverRegistryError {
+    /// A driver identifier is already registered.
+    DuplicateDriver(DriverId),
+    /// No free driver slot remains.
+    Full,
+    /// A descriptor without match criteria was rejected.
+    InvalidMatchRule(DriverId),
+}
+
+/// Fixed-capacity registry of built-in driver descriptors.
+///
+/// Registration order defines deterministic match priority. Descriptors are
+/// metadata only; this registry does not execute driver callbacks.
+pub struct DriverRegistry<const N: usize> {
+    entries: [Option<DriverDescriptor>; N],
+    len: usize,
+}
+
+impl<const N: usize> DriverRegistry<N> {
+    /// Create an empty driver registry.
+    pub const fn new() -> Self {
+        Self {
+            entries: [None; N],
+            len: 0,
+        }
+    }
+
+    /// Number of registered driver descriptors.
+    pub const fn len(&self) -> usize {
+        self.len
+    }
+
+    /// Register a driver descriptor.
+    pub fn register(
+        &mut self,
+        descriptor: DriverDescriptor,
+    ) -> Result<(), DriverRegistryError> {
+        if self
+            .entries
+            .iter()
+            .flatten()
+            .any(|entry| entry.id == descriptor.id)
+        {
+            return Err(DriverRegistryError::DuplicateDriver(descriptor.id));
+        }
+        if !descriptor.match_rule.is_specific() {
+            return Err(DriverRegistryError::InvalidMatchRule(descriptor.id));
+        }
+
+        let slot = self
+            .entries
+            .iter_mut()
+            .find(|entry| entry.is_none())
+            .ok_or(DriverRegistryError::Full)?;
+        *slot = Some(descriptor);
+        self.len += 1;
+        Ok(())
+    }
+
+    /// Find the first registered descriptor supporting an identity.
+    pub fn find_match(&self, identity: DeviceIdentity) -> Option<DriverDescriptor> {
+        self.entries
+            .iter()
+            .flatten()
+            .find(|descriptor| descriptor.supports(identity))
+            .copied()
+    }
+
+    /// Select and bind the first matching driver for a registered device.
+    pub fn bind_device<const D: usize>(
+        &self,
+        devices: &mut DeviceRegistry<D>,
+        id: DeviceId,
+    ) -> Result<DriverId, DriverManagerError> {
+        let record = devices
+            .get(id)
+            .ok_or(DriverManagerError::DeviceNotFound(id))?;
+        let descriptor = self
+            .find_match(record.identity)
+            .ok_or(DriverManagerError::NoMatchingDriver(id))?;
+        devices
+            .bind_driver(id, descriptor)
+            .map_err(DriverManagerError::Bind)?;
+        Ok(descriptor.id)
+    }
+}
+
+impl<const N: usize> Default for DriverRegistry<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Errors returned by the driver-manager selection and binding path.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DriverManagerError {
+    /// The requested device is not registered.
+    DeviceNotFound(DeviceId),
+    /// No registered descriptor supports the device.
+    NoMatchingDriver(DeviceId),
+    /// The selected descriptor could not be bound.
+    Bind(DeviceBindError),
 }
 
 /// Combined error for registry operations that also validate lifecycle state.
@@ -522,6 +681,7 @@ mod tests {
             Some(DeviceRecord {
                 id,
                 identity,
+                driver: None,
                 state: DeviceState::Discovered,
             })
         );
