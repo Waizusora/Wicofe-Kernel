@@ -68,16 +68,14 @@ pub struct TscCapabilities {
 impl TscCapabilities {
     /// Interpret CPUID data without assuming that unsupported leaves are valid.
     pub const fn from_snapshot(snapshot: CpuidSnapshot) -> Self {
-        let supported =
-            snapshot.max_basic_leaf >= 1 && snapshot.leaf1_edx & FEATURE_TSC != 0;
+        let supported = snapshot.max_basic_leaf >= 1 && snapshot.leaf1_edx & FEATURE_TSC != 0;
         let invariant = snapshot.max_extended_leaf >= 0x8000_0007
             && snapshot.leaf_8000_0007_edx & FEATURE_INVARIANT_TSC != 0;
         let rdtscp = snapshot.max_extended_leaf >= 0x8000_0001
             && snapshot.leaf_8000_0001_edx & FEATURE_RDTSCP != 0;
 
         let nominal_frequency = if snapshot.max_basic_leaf >= 0x15 {
-            let numerator = (snapshot.leaf15_ecx as u64)
-                .checked_mul(snapshot.leaf15_ebx as u64);
+            let numerator = (snapshot.leaf15_ecx as u64).checked_mul(snapshot.leaf15_ebx as u64);
             match numerator {
                 Some(value) => TscFrequency::new(value, snapshot.leaf15_eax as u64),
                 None => None,
@@ -106,42 +104,44 @@ pub fn detect() -> TscCapabilities {
     // SAFETY: CPUID is available in x86-64 long mode.
     let basic = unsafe { __cpuid_count(0, 0) };
     // SAFETY: CPUID is available in x86-64 long mode.
-    let leaf1 = if basic.eax >= 1 {
-        unsafe { __cpuid_count(1, 0) }
+    let leaf1_edx = if basic.eax >= 1 {
+        // SAFETY: The maximum basic leaf reports leaf 1 as supported.
+        unsafe { __cpuid_count(1, 0) }.edx
     } else {
-        Default::default()
+        0
     };
 
     // SAFETY: CPUID extended-leaf enumeration is architecturally supported.
     let extended = unsafe { __cpuid_count(0x8000_0000, 0) };
-    let ext1 = if extended.eax >= 0x8000_0001 {
+    let ext1_edx = if extended.eax >= 0x8000_0001 {
         // SAFETY: The maximum extended leaf reports this leaf as supported.
-        unsafe { __cpuid_count(0x8000_0001, 0) }
+        unsafe { __cpuid_count(0x8000_0001, 0) }.edx
     } else {
-        Default::default()
+        0
     };
-    let ext7 = if extended.eax >= 0x8000_0007 {
+    let ext7_edx = if extended.eax >= 0x8000_0007 {
         // SAFETY: The maximum extended leaf reports this leaf as supported.
-        unsafe { __cpuid_count(0x8000_0007, 0) }
+        unsafe { __cpuid_count(0x8000_0007, 0) }.edx
     } else {
-        Default::default()
+        0
     };
-    let leaf15 = if basic.eax >= 0x15 {
+    let (leaf15_eax, leaf15_ebx, leaf15_ecx) = if basic.eax >= 0x15 {
         // SAFETY: The maximum basic leaf reports this leaf as supported.
-        unsafe { __cpuid_count(0x15, 0) }
+        let leaf15 = unsafe { __cpuid_count(0x15, 0) };
+        (leaf15.eax, leaf15.ebx, leaf15.ecx)
     } else {
-        Default::default()
+        (0, 0, 0)
     };
 
     TscCapabilities::from_snapshot(CpuidSnapshot {
         max_basic_leaf: basic.eax,
-        leaf1_edx: leaf1.edx,
+        leaf1_edx,
         max_extended_leaf: extended.eax,
-        leaf_8000_0001_edx: ext1.edx,
-        leaf_8000_0007_edx: ext7.edx,
-        leaf15_eax: leaf15.eax,
-        leaf15_ebx: leaf15.ebx,
-        leaf15_ecx: leaf15.ecx,
+        leaf_8000_0001_edx: ext1_edx,
+        leaf_8000_0007_edx: ext7_edx,
+        leaf15_eax,
+        leaf15_ebx,
+        leaf15_ecx,
     })
 }
 
@@ -190,10 +190,7 @@ mod tests {
         let caps = TscCapabilities::from_snapshot(base);
         assert!(caps.supported);
         assert!(caps.invariant);
-        assert_eq!(
-            caps.nominal_frequency,
-            TscFrequency::new(72_000_000, 1)
-        );
+        assert_eq!(caps.nominal_frequency, TscFrequency::new(72_000_000, 1));
         assert!(caps.is_constant_rate_candidate());
 
         let mut variable = base;
