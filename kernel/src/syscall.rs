@@ -132,7 +132,7 @@ mod tests {
 
     impl SyscallDispatcher for ErrorDispatcher {
         fn dispatch(&mut self, _request: SyscallRequest) -> SyscallOutcome {
-            SyscallOutcome::Error(NonZeroU32::new(38).expect("non-zero errno"))
+            SyscallOutcome::Error(NonZeroU32::new(36).expect("ENOSYS is non-zero"))
         }
     }
 
@@ -142,7 +142,7 @@ mod tests {
         let request = SyscallRequest::new(999, [0; 6]);
         assert_eq!(
             dispatch_request(&mut dispatcher, request),
-            SyscallReturn { value: 38, carry: true }
+            SyscallReturn { value: 36, carry: true }
         );
     }
 
