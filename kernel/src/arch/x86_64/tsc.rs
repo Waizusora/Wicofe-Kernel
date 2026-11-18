@@ -111,12 +111,8 @@ mod tests {
 
     #[test]
     fn decodes_all_tsc_capabilities() {
-        let caps = TscCapabilities::from_cpuid(
-            CPUID_TSC,
-            0x8000_0007,
-            CPUID_RDTSCP,
-            CPUID_INVARIANT_TSC,
-        );
+        let caps =
+            TscCapabilities::from_cpuid(CPUID_TSC, 0x8000_0007, CPUID_RDTSCP, CPUID_INVARIANT_TSC);
         assert_eq!(
             caps,
             TscCapabilities {
@@ -129,12 +125,8 @@ mod tests {
 
     #[test]
     fn extended_features_require_supported_cpuid_leaves() {
-        let caps = TscCapabilities::from_cpuid(
-            CPUID_TSC,
-            0x8000_0000,
-            CPUID_RDTSCP,
-            CPUID_INVARIANT_TSC,
-        );
+        let caps =
+            TscCapabilities::from_cpuid(CPUID_TSC, 0x8000_0000, CPUID_RDTSCP, CPUID_INVARIANT_TSC);
         assert!(caps.supported);
         assert!(!caps.invariant);
         assert!(!caps.rdtscp);
@@ -142,12 +134,7 @@ mod tests {
 
     #[test]
     fn tsc_may_be_absent_even_when_extended_bits_are_set() {
-        let caps = TscCapabilities::from_cpuid(
-            0,
-            0x8000_0007,
-            CPUID_RDTSCP,
-            CPUID_INVARIANT_TSC,
-        );
+        let caps = TscCapabilities::from_cpuid(0, 0x8000_0007, CPUID_RDTSCP, CPUID_INVARIANT_TSC);
         assert!(!caps.supported);
         assert!(!caps.invariant);
         assert!(!caps.rdtscp);
