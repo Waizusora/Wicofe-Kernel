@@ -1,6 +1,6 @@
 # x86-64 Legacy IRQ, PIC, and PIT
 
-- **Status:** PIC and returning IRQ foundation implemented; PIT runtime smoke verification pending
+- **Status:** PIC, returning IRQ path, and PIT IRQ0 smoke verified in QEMU
 - **Scope:** 8259 PIC vectors 32–47, returning IRQ entry, handler registry, 8254 PIT channel 0
 - **Runtime policy:** IRQ lines remain masked by default; no production-wide STI is enabled
 
@@ -30,7 +30,7 @@
 
 The `irq-smoke-pit` build-only feature registers an IRQ0 callback, programs the PIT at 100 Hz, verifies the PIC mask and IF state, unmasks IRQ0, and waits for one tick. The handler increments an atomic counter; the smoke path then disables interrupts and masks IRQ0 again.
 
-The CI smoke test runs on `-machine pc -cpu qemu64,-apic` to isolate the legacy 8259 route. The kernel and ISO build, but the last QEMU run did not observe the PIT tick; therefore the IRQ0 delivery and `iretq` runtime path are **not yet verified**. A `HLT`-based wait has been added to remove the prior CPU-speed-dependent polling window. Even after this smoke test passes, it will not validate IOAPIC/LAPIC routing on q35, SMP delivery, scheduler ticks, or production interrupt enabling.
+The CI smoke test runs on `-machine pc -cpu qemu64,-apic` to isolate the legacy 8259 route. It registers IRQ0, programs channel 0 at 100 Hz, unmasks IRQ0, observes the handler's atomic tick counter after a `HLT` wake-up, then disables interrupts and masks IRQ0 again. The `IRQ_PIT_SMOKE_OK` serial marker is required by CI. This validates the legacy PIC/PIT IRQ0 delivery, handler dispatch, register restoration and `iretq`; it does **not** validate IOAPIC/LAPIC routing on q35, SMP delivery, scheduler ticks, or production-wide interrupt enabling.
 
 ## Safety constraints
 
