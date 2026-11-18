@@ -3,7 +3,7 @@
 //! Initialization registers and unmasks IRQ0 but deliberately does not execute
 //! STI. The caller controls when CPU interrupts become enabled.
 
-use core::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
+use core::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
 
 #[cfg(target_os = "none")]
 use super::{irq, pit};
@@ -25,7 +25,9 @@ struct TickCounter {
 
 impl TickCounter {
     const fn new() -> Self {
-        Self { value: AtomicU64::new(0) }
+        Self {
+            value: AtomicU64::new(0),
+        }
     }
 
     fn increment(&self) {
