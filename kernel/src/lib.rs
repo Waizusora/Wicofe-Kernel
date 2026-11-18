@@ -14,6 +14,7 @@ pub mod boot;
 pub mod hal;
 pub mod memory;
 pub mod pmm;
+pub mod syscall;
 pub mod time;
 pub mod vmm;
 
