@@ -138,9 +138,11 @@ Safe unloading requires proof that no active references, callbacks, interrupts, 
 
 ## 10. Driver architecture
 
-Drivers may be built-in or supplied as DKM. Storage and bus drivers required to locate the root filesystem must be available before root mounting, either built in or through a defined early-boot module path.
+Wicofe uses its native Wicofe Driver Framework (WDF), defined in [docs/DRIVER_FRAMEWORK_SPEC.md](docs/DRIVER_FRAMEWORK_SPEC.md). Driver implementations are written against Wicofe kernel interfaces; Linux kernel driver APIs are not a compatibility target and Linux driver code is not directly ported. Public hardware specifications and reviewed reference implementations may be used as technical references, subject to license and provenance review.
 
-Driver categories may include storage, USB, networking, audio, display, input, Bluetooth, and Wi-Fi. The initial supported hardware set remains open.
+Drivers may be built-in or supplied as DKM only after the DKM ABI and loader are implemented. Storage and bus drivers required to locate the root filesystem must be available before root mounting, either built in or through a defined authenticated early-boot module path.
+
+Initial CPU targets are x86_64 and AArch64, with Intel, AMD, and ARM device ecosystems targeted by individual device-family support. PCI/PCIe, ACPI, Device Tree, USB, and platform-bus discovery are planned; actual support must be claimed per implementation and validation evidence. Driver categories include storage, USB, networking, audio, display, input, Bluetooth, Wi-Fi, and graphics.
 
 ## 11. Boot sequence
 
