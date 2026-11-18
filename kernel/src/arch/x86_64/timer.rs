@@ -172,8 +172,8 @@ mod tests {
         assert_eq!(ticks_to_units(0, 11_931, 1_000), Some(0));
         assert_eq!(ticks_to_units(1, 11_931, 1_000), Some(9));
         assert_eq!(ticks_to_units(100, 11_931, 1_000), Some(999));
-        assert_eq!(ticks_to_units(1, 11_931, 1_000_000), Some(9_998));
-        assert_eq!(ticks_to_units(1, 11_931, 1_000_000_000), Some(9_998_473));
+        assert_eq!(ticks_to_units(1, 11_931, 1_000_000), Some(9_999));
+        assert_eq!(ticks_to_units(1, 11_931, 1_000_000_000), Some(9_999_312));
     }
 
     #[test]
