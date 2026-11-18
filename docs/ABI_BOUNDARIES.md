@@ -7,8 +7,7 @@
 
 ## 1. Purpose
 
-Wicofe has two distinct ABI boundaries. They must not be conflated:
-
+Wicofe has two distinct ABI boundaries:
 1. **Userspace syscall ABI**, owned by `Wicofe-ABI`. It defines the contract between user processes and the kernel.
 2. **Dynamic Kernel Module ABI (DKM ABI)**, owned by `Wicofe-Kernel`. It defines the contract between the running kernel and privileged in-kernel modules.
 
@@ -29,7 +28,6 @@ No consumer repository may independently assign syscall numbers or redefine a pu
 ## 3. Userspace syscall ABI rules
 
 The syscall ABI is a public compatibility surface. Its specification must define, for each call:
-
 - Stable symbolic name and unique numeric identifier.
 - Supported architectures and architecture-specific entry instruction.
 - Register/stack argument placement and return-value rules.
@@ -45,18 +43,19 @@ Pointers supplied by userspace are untrusted. The kernel must validate ranges, a
 
 The native C runtime is **Wlibc**, which targets the declared ISO C/POSIX profile and consumes this ABI. It does not define a parallel syscall ABI. POSIX interfaces may be composed from multiple syscalls or implemented in a separate userspace POSIX layer; only actual kernel mechanisms belong in this ABI.
 
-### 3.1 Current raw syscall convention review
+### 3.1 Adopted raw syscall result convention
 
-Wicofe-ABI has a candidate x86-64/AArch64 convention using the carry condition as an out-of-band error discriminator. The [proposal](https://github.com/Waizusora/Wicofe-ABI/blob/main/docs/SYSCALL_CALLING_CONVENTION_PROPOSAL_0.1.md) remains Proposed. Its [technical review](https://github.com/Waizusora/Wicofe-ABI/blob/main/docs/SYSCALL_CONVENTION_TECHNICAL_REVIEW_0.1.md) records mandatory kernel obligations:
+The [Wicofe syscall calling convention 0.1](https://github.com/Waizusora/Wicofe-ABI/blob/main/docs/SYSCALL_CALLING_CONVENTION_PROPOSAL_0.1.md) is adopted:
+- x86-64 uses RFLAGS.CF: clear means success, set means failure.
+- AArch64 uses PSTATE.C: clear means success, set means failure.
+- The primary result register contains the operation result on success or a positive Wicofe errno on failure.
+- The kernel must set the final saved return carry state only after flag-changing kernel work is complete.
+- x86-64 must validate the return address and use a safe IRETQ path where SYSRETQ is not valid.
+- AArch64 must set the saved SPSR_EL1.C immediately before ERET.
+- Signal delivery/return, interrupts, and preemption must preserve the documented syscall return state.
+- Wlibc stubs must capture carry in the same compiler-visible assembly boundary as the trap instruction.
 
-- Save the user return state before kernel instructions alter condition flags.
-- Set the result carry bit in the final saved return context, after all flag-changing kernel work.
-- On x86-64, validate the return address and provide a safe IRETQ path where SYSRETQ is not valid.
-- On AArch64, update the saved SPSR_EL1.C value immediately before ERET.
-- Preserve and restore the specified state across interrupts, preemption, and signal delivery/return.
-- Test optimized GCC and Clang syscall stubs that capture the carry result inside the same assembly boundary as the trap instruction.
-
-These are design and validation requirements only. Kernel code must not implement or assume the proposal until Wicofe-ABI explicitly adopts it.
+This adoption does not freeze syscall numbers, errno values, all register-preservation details, or the complete userspace ABI. See the Wicofe-ABI technical review and required QEMU/compiler validation matrix.
 
 ## 4. DKM ABI rules
 
@@ -85,7 +84,7 @@ Kernel releases must publish the userspace ABI version/capability set and DKM AB
 
 Every interface must define stable error semantics. Do not expose Rust `Result`, panic payloads, or enum discriminants as ABI values.
 
-A syscall failure must be distinguishable from a valid return value according to the selected syscall convention. The exact raw return convention and errno mapping are open decisions for Wicofe-ABI.
+A syscall failure must be distinguishable from a valid return value according to the adopted carry-flag convention. The exact errno namespace and per-call mappings are owned by Wicofe-ABI.
 
 A DKM load failure must leave no partially published module, dangling callback, leaked registration, or unresolved dependency. Failure to prove safe unload means the module remains loaded.
 
@@ -99,4 +98,4 @@ Before either ABI is declared stable, require:
 - Negative tests for malformed pointers, metadata, versions, and unsupported capabilities.
 - Documentation of every breaking-change and deprecation rule.
 
-**This document records boundaries and invariants. It does not freeze syscall numbers, register assignments, DKM object format, or relocation types.**
+This document records boundaries and invariants. It does not freeze syscall numbers, errno values, or DKM object format/relocation types.
