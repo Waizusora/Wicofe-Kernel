@@ -182,15 +182,16 @@ A module must not be unloaded while executing or while reachable through registe
 
 ## 14. Driver framework
 
-Responsibilities:
-- Device identity and discovery integration.
-- Driver matching and binding.
-- Device lifecycle.
-- Resource ownership.
-- Interrupt and DMA coordination.
-- Power-management hooks when designed.
+Wicofe uses the native Wicofe Driver Framework (WDF), specified in [docs/DRIVER_FRAMEWORK_SPEC.md](DRIVER_FRAMEWORK_SPEC.md). WDF is an original in-kernel interface and does not expose or depend on Linux kernel driver APIs.
 
-Boot-critical drivers must be available before the boot phase that requires them. Optional drivers may be DKM.
+Responsibilities:
+- Device identity and normalized discovery integration.
+- Driver matching, probing, binding, and lifecycle transitions.
+- Explicit ownership and rollback of device resources.
+- Coordination with MMIO, interrupt, DMA, IOMMU, and power managers.
+- Device-class integration and userspace-facing device publication through kernel interfaces.
+
+The initial implementation is allocation-free and hardware-independent. Real enumeration and hardware access remain gated on the corresponding bus, memory, interrupt, DMA, and platform services. Intel, AMD, and ARM are target ecosystems; support is per documented device family and tested platform, not a blanket compatibility claim. Boot-critical drivers must be available before the boot phase that requires them. DKM-backed drivers are deferred until the DKM ABI, loader, trust policy, and safe-unload requirements are implemented.
 
 ## 15. Initialization dependency outline
 
