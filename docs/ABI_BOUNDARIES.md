@@ -2,7 +2,7 @@
 
 - **Status:** Design baseline
 - **Version:** 0.1
-- **Applies to:** Wicofe-Kernel, Wicofe-ABI, Wicofe-Drivers
+- **Applies to:** Wicofe-Kernel, Wicofe-ABI, Wicofe-Drivers, Wlibc
 - **License:** MPL-2.0 for original project material
 
 ## 1. Purpose
@@ -18,8 +18,8 @@ These interfaces have different threat models, compatibility requirements, and l
 
 | Interface | Canonical owner | Implementers / consumers |
 |---|---|---|
-| Syscall identifiers, calling convention, arguments, errors | Wicofe-ABI | Kernel syscall layer, libc, Rust userspace runtime |
-| User-visible structures and constants | Wicofe-ABI | Kernel, Wicofe-Libc, Wicofe-Lib, SDK |
+| Syscall identifiers, calling convention, arguments, errors | Wicofe-ABI | Kernel syscall layer, Wlibc, Rust userspace runtime |
+| User-visible structures and constants | Wicofe-ABI | Kernel, Wlibc, Wicofe-Lib, SDK |
 | DKM metadata, loader contract, exported kernel function tables | Wicofe-Kernel | Kernel module manager and Wicofe-Drivers |
 | VFS internal interfaces | Wicofe-Kernel | Built-in filesystems and DKM filesystem modules |
 | ONWFS disk format | ONWFS | Kernel ONWFS implementation and offline tools |
@@ -43,12 +43,13 @@ Use fixed-width integer types and explicitly defined C-compatible structures at 
 
 Pointers supplied by userspace are untrusted. The kernel must validate ranges, alignment, access permissions, arithmetic overflow, and object lifetime before use. Copying data across the boundary must follow documented fault and partial-transfer semantics.
 
+The native C runtime is **Wlibc**, which targets the declared ISO C/POSIX profile and consumes this ABI. It does not define a parallel syscall ABI. POSIX interfaces may be composed from multiple syscalls or implemented in a separate userspace POSIX layer; only actual kernel mechanisms belong in this ABI.
+
 ## 4. DKM ABI rules
 
 A DKM executes with kernel privilege. ABI validation prevents accidental incompatibility; it does not sandbox a malicious or defective module.
 
 The DKM boundary must:
-
 - Use an explicitly versioned C-compatible representation.
 - Use fixed-width fields, opaque handles, and function tables.
 - Define ownership, lifetime, mutability, and synchronization for every handle and callback.
@@ -78,7 +79,6 @@ A DKM load failure must leave no partially published module, dangling callback, 
 ## 7. Required review before stabilization
 
 Before either ABI is declared stable, require:
-
 - A written architecture-specific calling convention.
 - Machine-readable or generated definitions where practical.
 - Layout and alignment tests for public structures.
