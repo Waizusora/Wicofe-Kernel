@@ -3,7 +3,10 @@
 //! This module deliberately contains no port I/O. Hardware sampling, timeout
 //! handling, and restoration of PIT state belong to a separate boot-time layer.
 
-use super::pit::{channel2_oneshot_expired_with_io, program_channel2_oneshot_with_io, restore_channel2_control_with_io, PitChannel2Io, PitError, INPUT_FREQUENCY_HZ};
+use super::pit::{
+    INPUT_FREQUENCY_HZ, PitChannel2Io, PitError, channel2_oneshot_expired_with_io,
+    program_channel2_oneshot_with_io, restore_channel2_control_with_io,
+};
 use super::tsc::TscFrequency;
 
 /// One measured interval. `pit_ticks` is the number of PIT input-clock cycles.
@@ -59,8 +62,7 @@ where
         return Err(CalibrationError::ZeroPollBudget);
     }
 
-    let previous = program_channel2_oneshot_with_io(io, count)
-        .map_err(CalibrationError::Pit)?;
+    let previous = program_channel2_oneshot_with_io(io, count).map_err(CalibrationError::Pit)?;
     let start = read_tsc();
     let mut completed = false;
 
@@ -194,7 +196,10 @@ mod tests {
         fn read_u8(&mut self, port: u16) -> u8 {
             if port == 0x61 {
                 self.polls += 1;
-                if self.polls_until_expiry.is_some_and(|limit| self.polls > limit) {
+                if self
+                    .polls_until_expiry
+                    .is_some_and(|limit| self.polls > limit)
+                {
                     self.control |= 1 << 5;
                 }
                 self.control
@@ -213,8 +218,7 @@ mod tests {
             writes: std::vec::Vec::new(),
         };
         let mut reads = [100_u64, 1_000_u64].into_iter();
-        let sample = measure_sample_with_io(&mut pit, 10_000, 8, || reads.next().unwrap())
-            .unwrap();
+        let sample = measure_sample_with_io(&mut pit, 10_000, 8, || reads.next().unwrap()).unwrap();
         assert_eq!(sample.tsc_ticks, 900);
         assert_eq!(sample.pit_ticks, 10_000);
         assert_eq!(pit.control, 0b1000_0010);
@@ -264,9 +268,7 @@ mod tests {
         let result = calibrate(&samples, 2_000).unwrap();
         assert_eq!(result.samples_used, 3);
         assert_eq!(result.frequency.denominator(), 1);
-        assert!(
-            (2_399_000_000..=2_403_000_000).contains(&result.frequency.numerator_hz())
-        );
+        assert!((2_399_000_000..=2_403_000_000).contains(&result.frequency.numerator_hz()));
     }
 
     #[test]
@@ -279,8 +281,7 @@ mod tests {
             sample_for_hz(3_200_000_000),
         ];
         let result = calibrate(&samples, 400_000).unwrap();
-        assert!((2_399_000_000..=2_403_000_000)
-            .contains(&result.frequency.numerator_hz()));
+        assert!((2_399_000_000..=2_403_000_000).contains(&result.frequency.numerator_hz()));
     }
 
     #[test]
