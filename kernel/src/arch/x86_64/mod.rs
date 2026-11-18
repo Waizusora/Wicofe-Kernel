@@ -12,6 +12,7 @@ pub mod paging;
 pub mod pic;
 pub mod pit;
 pub mod timer;
+pub mod tsc;
 
 /// Architecture identifier used by early diagnostics.
 pub const ARCH_NAME: &str = "x86_64";
