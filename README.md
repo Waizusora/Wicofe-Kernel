@@ -40,6 +40,10 @@ VMM, exception handling, SMP, heap allocation, DKM loading, and filesystem imple
 | Kernel memory model | Bootstrap allocator, PMM, VMM, kernel heap (staged implementation) |
 | Original code license | MPL-2.0 |
 
+## Init-system integration
+
+[Frenit (Free Init)](https://github.com/Waizusora/Frenit) is the canonical Wicofe init-system and service-management project. The kernel provides the process, syscall, VFS, IPC, signal, and power-management mechanisms Frenit will consume; it does not own init policy. Native Frenit PID 1 handoff is not implemented or verified yet. See [Frenit integration boundary](docs/FRENIT_INTEGRATION.md) and the [cross-component contract](https://github.com/Waizusora/Wicofe-Specs/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md).
+
 ## Kernel documentation
 
 Start at [docs/INDEX.md](docs/INDEX.md). Canonical kernel documents include:
