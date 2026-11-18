@@ -1,6 +1,6 @@
 # x86-64 Legacy IRQ, PIC, and PIT
 
-- **Status:** PIC, returning IRQ path, and PIT IRQ0 smoke verified in QEMU
+- **Status:** PIC, returning IRQ path, and PIT-backed monotonic tick smoke verified in QEMU
 - **Scope:** 8259 PIC vectors 32–47, returning IRQ entry, handler registry, 8254 PIT channel 0
 - **Runtime policy:** IRQ lines remain masked by default; no production-wide STI is enabled
 
@@ -28,13 +28,13 @@
 
 ## Tick accounting
 
-`timer::initialize_pit(hz)` installs the kernel-owned IRQ0 callback, programs PIT channel 0, records the integer actual frequency, and unmasks IRQ0. It does not execute `STI`; the caller remains responsible for enabling CPU interrupts only after all dependent kernel state is ready. `timer::ticks()`, `timer::frequency_hz()`, and `timer::uptime_millis()` expose the monotonic tick count and derived time after initialization. This is a single-CPU early timebase foundation, not yet a scheduler clock, wall clock, or SMP time source.
+`timer::initialize_pit(hz)` installs the kernel-owned IRQ0 callback, programs PIT channel 0, stores the exact divisor, and unmasks IRQ0. It does not execute `STI`; the caller remains responsible for enabling CPU interrupts only after all dependent kernel state is ready. `timer::ticks()`, `timer::frequency_hz()`, and `timer::uptime_millis()` expose the monotonic tick count, integer display frequency, and divisor-derived elapsed milliseconds after initialization. The conversion uses the exact PIT input clock/divisor rather than a rounded frequency. This is a single-CPU early timebase foundation, not yet a scheduler clock, wall clock, or SMP time source.
 
 ## QEMU validation
 
 The `irq-smoke-pit` build-only feature registers an IRQ0 callback, programs the PIT at 100 Hz, verifies the PIC mask and IF state, unmasks IRQ0, and waits for one tick. The handler increments an atomic counter; the smoke path then disables interrupts and masks IRQ0 again.
 
-The CI smoke test runs on `-machine pc -cpu qemu64,-apic` to isolate the legacy 8259 route. It registers IRQ0, programs channel 0 at 100 Hz, unmasks IRQ0, observes the handler's atomic tick counter after a `HLT` wake-up, then disables interrupts and masks IRQ0 again. The `IRQ_PIT_SMOKE_OK` serial marker is required by CI. This validates the legacy PIC/PIT IRQ0 delivery, handler dispatch, register restoration and `iretq`; it does **not** validate IOAPIC/LAPIC routing on q35, SMP delivery, scheduler ticks, or production-wide interrupt enabling.
+The CI smoke test runs on `-machine pc -cpu qemu64,-apic` to isolate the legacy 8259 route. It calls the production `timer::initialize_pit(100)` API, waits for the handler's atomic tick counter using `HLT`, then disables interrupts and masks IRQ0 again. The `IRQ_PIT_SMOKE_OK` serial marker is required by CI. The test passed on QEMU in the kernel CI workflow. This validates the legacy PIC/PIT IRQ0 delivery, timer callback, register restoration and `iretq`; it does **not** validate IOAPIC/LAPIC routing on q35, SMP delivery, scheduler ticks, wall-clock time, or production-wide interrupt enabling.
 
 ## Safety constraints
 
