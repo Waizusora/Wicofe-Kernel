@@ -1,7 +1,7 @@
 //! Pure TSC frequency calibration against PIT channel 2 intervals.
 //!
-//! This module deliberately contains no port I/O. Hardware sampling, timeout
-//! handling, and restoration of PIT state belong to a separate boot-time layer.
+//! The estimator is pure and allocation-free. Hardware sampling is isolated
+//! behind a bounded, boot-time adapter so it can be tested with mock port I/O.
 
 use super::pit::{
     INPUT_FREQUENCY_HZ, PitChannel2Io, PitError, channel2_oneshot_expired_with_io,
@@ -41,6 +41,7 @@ pub enum CalibrationError {
     ZeroPollBudget,
     Timeout,
     Pit(PitError),
+    TscUnsupported,
 }
 
 /// Measure one PIT channel-2 interval with a strictly bounded polling loop.
@@ -86,6 +87,48 @@ where
         tsc_ticks,
         pit_ticks: count as u32,
     })
+}
+
+
+/// Calibrate the local processor's TSC using repeated PIT channel-2 intervals.
+///
+/// # Safety
+/// Must run at ring 0 with exclusive ownership of PIT channel 2 and port 0x61.
+/// The caller must prevent concurrent code from changing the PC speaker/PIT
+/// channel-2 state. The function does not disable interrupts; a preemption
+/// can cause a timeout or an outlier, which the bounded sampler rejects.
+#[cfg(target_os = "none")]
+pub unsafe fn calibrate_hardware(
+    sample_count: usize,
+    pit_count: u16,
+    max_polls: u32,
+    max_spread_ppm: u32,
+) -> Result<CalibrationResult, CalibrationError> {
+    if sample_count < MIN_CALIBRATION_SAMPLES {
+        return Err(CalibrationError::TooFewSamples);
+    }
+    if sample_count > MAX_CALIBRATION_SAMPLES {
+        return Err(CalibrationError::TooManySamples);
+    }
+    if !super::tsc::detect().supported {
+        return Err(CalibrationError::TscUnsupported);
+    }
+
+    let mut samples = [CalibrationSample {
+        tsc_ticks: 0,
+        pit_ticks: 0,
+    }; MAX_CALIBRATION_SAMPLES];
+    let mut io = super::pit::X86PitIo;
+
+    for sample in samples.iter_mut().take(sample_count) {
+        // SAFETY: TSC support was checked on this logical processor above.
+        let measured = measure_sample_with_io(&mut io, pit_count, max_polls, || unsafe {
+            super::tsc::read_unchecked()
+        })?;
+        *sample = measured;
+    }
+
+    calibrate(&samples[..sample_count], max_spread_ppm)
 }
 
 /// Convert a batch of TSC/PIT intervals into a median frequency estimate.
