@@ -149,8 +149,8 @@ fn ticks_to_units(ticks: u64, divisor: u32, units_per_second: u64) -> Option<u64
         return None;
     }
     let elapsed_cycles = ticks as u128 * divisor as u128;
-    let units = (elapsed_cycles * units_per_second as u128)
-        / super::pit::INPUT_FREQUENCY_HZ as u128;
+    let units =
+        (elapsed_cycles * units_per_second as u128) / super::pit::INPUT_FREQUENCY_HZ as u128;
     Some(units.min(u64::MAX as u128) as u64)
 }
 
