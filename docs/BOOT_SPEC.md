@@ -368,3 +368,10 @@ A successful host `cargo check` is not evidence of a bootable kernel.
 - Emulator matrix and hardware smoke-test targets.
 
 **End of boot foundation specification.**
+
+
+## 12. Frenit and initial userspace boundary
+
+[Frenit (Free Init)](https://github.com/Waizusora/Frenit) is the canonical Wicofe init-system project. Its CLI and service-management policy belong to Frenit; process, executable loading, wait/reap, signals, VFS, IPC and power mechanisms belong to the kernel; public syscall definitions belong to [Wicofe-ABI](https://github.com/Waizusora/Wicofe-ABI). The cross-component contract is [WIC-SPEC-BOOT-FRENIT-001](https://github.com/Waizusora/Wicofe-Specs/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md).
+
+The current kernel does not yet launch userspace or establish Frenit as PID 1. Do not add a Frenit boot target until the executable handoff, root filesystem, process lifecycle, signal, descriptor, IPC and shutdown contracts are implemented and covered by native QEMU conformance tests. POSIX source compatibility does not imply Linux binary ABI compatibility.
