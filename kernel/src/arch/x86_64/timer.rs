@@ -5,6 +5,8 @@
 
 use core::sync::atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering};
 
+use crate::time::{ClockReading, ClockSource};
+
 #[cfg(target_os = "none")]
 use super::{irq, pit};
 
@@ -18,6 +20,21 @@ const STATE_FAILED: u8 = 3;
 static STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 static TICKS: TickCounter = TickCounter::new();
 static PIT_DIVISOR: AtomicU32 = AtomicU32::new(0);
+
+/// Zero-sized adapter exposing the PIT counter through the generic clock contract.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PitClockSource;
+
+impl ClockSource for PitClockSource {
+    fn read(&self) -> Option<ClockReading> {
+        if !is_initialized() { return None; }
+        let divisor = PIT_DIVISOR.load(Ordering::Acquire) as u64;
+        ClockReading::new(ticks(), super::pit::INPUT_FREQUENCY_HZ as u64, divisor)
+    }
+}
+
+/// Return the PIT backend as a clock source without selecting it globally.
+pub const fn pit_clock_source() -> PitClockSource { PitClockSource }
 
 struct TickCounter {
     value: AtomicU64,
@@ -148,10 +165,8 @@ fn ticks_to_units(ticks: u64, divisor: u32, units_per_second: u64) -> Option<u64
     if divisor == 0 || units_per_second == 0 {
         return None;
     }
-    let elapsed_cycles = ticks as u128 * divisor as u128;
-    let units =
-        (elapsed_cycles * units_per_second as u128) / super::pit::INPUT_FREQUENCY_HZ as u128;
-    Some(units.min(u64::MAX as u128) as u64)
+    ClockReading::new(ticks, super::pit::INPUT_FREQUENCY_HZ as u64, divisor as u64)?
+        .elapsed_units(units_per_second)
 }
 
 #[cfg(test)]
