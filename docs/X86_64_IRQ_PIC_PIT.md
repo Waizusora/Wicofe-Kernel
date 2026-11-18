@@ -26,6 +26,10 @@
 - Input clock is 1,193,182 Hz; the driver rejects zero frequencies and divisors outside the 16-bit counter range.
 - PIT programming does not register a handler, unmask IRQ0, or enable CPU interrupts.
 
+## Clocksource contract
+
+The architecture-independent kernel::time::ClockSource interface returns an optional ClockReading containing a monotonic counter and an exact rational tick rate. ClockReading converts elapsed ticks to requested units with u128 intermediates and saturating u64 output. The x86-64 PIT adapter is available through timer::pit_clock_source() and implements this contract; it reports None until PIT initialization completes. The adapter is not installed as a global default, and no source-selection policy, wall clock, scheduler integration, or userspace time syscall is implied by this interface.
+
 ## Tick accounting
 
 `timer::initialize_pit(hz)` installs the kernel-owned IRQ0 callback, programs PIT channel 0, stores the exact divisor, and unmasks IRQ0. It does not execute `STI`; the caller remains responsible for enabling CPU interrupts only after all dependent kernel state is ready. `timer::ticks()`, `timer::frequency_hz()`, `timer::uptime_millis()`, `timer::uptime_micros()`, and `timer::uptime_nanos()` expose the monotonic tick count, integer display frequency, and divisor-derived elapsed time at millisecond, microsecond, and nanosecond scales after initialization. Sub-millisecond values are quantized to the PIT IRQ period; nanosecond output is a unit conversion, not nanosecond hardware resolution. Conversions use saturating `u64` output and the exact PIT input clock/divisor. The conversion uses the exact PIT input clock/divisor rather than a rounded frequency. This is a single-CPU early timebase foundation, not yet a scheduler clock, wall clock, or SMP time source.
