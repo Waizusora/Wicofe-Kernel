@@ -8,6 +8,7 @@ This directory is exclusively for Wicofe kernel architecture, implementation con
 - [Kernel licensing and dependency policy](LICENSING.md)
 - [Kernel design](KERNEL_DESIGN.md)
 - [DKM specification](DKM_SPEC.md)
+- [Native Driver Framework (WDF)](DRIVER_FRAMEWORK_SPEC.md)
 - [ABI boundaries](ABI_BOUNDARIES.md)
 - [VFS and filesystem integration](FILESYSTEM_SPEC.md)
 - [Memory management](MEMORY_MANAGEMENT_SPEC.md)
