@@ -190,7 +190,7 @@ mod tests {
         let caps = TscCapabilities::from_snapshot(base);
         assert!(caps.supported);
         assert!(caps.invariant);
-        assert_eq!(caps.nominal_frequency, TscFrequency::new(72_000_000, 1));
+        assert_eq!(caps.nominal_frequency, TscFrequency::new(72_000_000, 2));
         assert!(caps.is_constant_rate_candidate());
 
         let mut variable = base;
