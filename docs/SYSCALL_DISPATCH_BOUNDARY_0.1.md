@@ -39,14 +39,14 @@ The following remain unimplemented:
 
 - x86-64 SYSCALL MSR configuration, entry assembly, per-CPU kernel stack selection, and SYSRETQ/IRETQ return policy.
 - AArch64 SVC vector setup, exception-level validation, per-CPU stack selection, and ERET return policy.
-- Full user register frames, including user instruction pointer, stack pointer, status flags, and privilege state.
+- Architecture entry/return assembly and runtime validation remain unimplemented. The software-owned layout contracts now exist in `arch/x86_64/user_context.rs` and `arch/aarch64/user_context.rs`.
 - Per-thread syscall context, process/address-space association, and safe user-copy primitives.
 - A concrete syscall registry and subsystem handlers.
 - Signal delivery, interruption, restart, and cancellation semantics.
 - QEMU tests that execute a syscall from ring 3 / EL0 and verify returned value and carry state.
 
-The existing x86-64 IDT exception/IRQ frame is not reused as a syscall frame: its current same-privilege exception layout does not model the complete user return context required by SYSRETQ or IRETQ.
+The existing x86-64 IDT exception/IRQ frame is not reused as a syscall frame: its current same-privilege exception layout does not model the complete user return context required by SYSRETQ or IRETQ. The new `UserContext` types are software-owned snapshots only; they are not populated by hardware or assembly yet. The x86-64 bootstrap GDT currently installs only ring-0 descriptors, and the AArch64 backend does not yet install an EL1 vector table. Neither architecture can enter userspace through this milestone.
 
 ## 5. Validation status
 
-Unit tests cover request preservation and mapping of success/error outcomes. They do not prove architecture entry correctness or user/kernel isolation. Runtime syscall support must not be claimed until the deferred entry, memory-safety, and QEMU tests are complete.
+Unit tests cover request preservation, result mapping, and compile-time-checked user-context field offsets on the architecture being built. They do not prove architecture entry correctness, privilege transitions, or user/kernel isolation. Runtime syscall support must not be claimed until the deferred entry, memory-safety, and QEMU tests are complete.
