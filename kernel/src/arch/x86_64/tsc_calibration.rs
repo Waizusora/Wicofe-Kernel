@@ -3,7 +3,7 @@
 //! This module deliberately contains no port I/O. Hardware sampling, timeout
 //! handling, and restoration of PIT state belong to a separate boot-time layer.
 
-use super::pit::INPUT_FREQUENCY_HZ;
+use super::pit::{channel2_oneshot_expired_with_io, program_channel2_oneshot_with_io, restore_channel2_control_with_io, PitChannel2Io, PitError, INPUT_FREQUENCY_HZ};
 use super::tsc::TscFrequency;
 
 /// One measured interval. `pit_ticks` is the number of PIT input-clock cycles.
@@ -35,6 +35,55 @@ pub enum CalibrationError {
     ZeroDelta,
     ArithmeticOverflow,
     SpreadExceeded,
+    ZeroPollBudget,
+    Timeout,
+    Pit(PitError),
+}
+
+/// Measure one PIT channel-2 interval with a strictly bounded polling loop.
+///
+/// The caller must establish TSC support on the current logical processor and
+/// own PIT channel 2. The previous speaker-control byte is restored on both
+/// completion and timeout.
+pub fn measure_sample_with_io<I, F>(
+    io: &mut I,
+    count: u16,
+    max_polls: u32,
+    mut read_tsc: F,
+) -> Result<CalibrationSample, CalibrationError>
+where
+    I: PitChannel2Io,
+    F: FnMut() -> u64,
+{
+    if max_polls == 0 {
+        return Err(CalibrationError::ZeroPollBudget);
+    }
+
+    let previous = program_channel2_oneshot_with_io(io, count)
+        .map_err(CalibrationError::Pit)?;
+    let start = read_tsc();
+    let mut completed = false;
+
+    for _ in 0..max_polls {
+        if channel2_oneshot_expired_with_io(io) {
+            completed = true;
+            break;
+        }
+    }
+
+    let end = if completed { Some(read_tsc()) } else { None };
+    restore_channel2_control_with_io(io, previous);
+
+    let end = end.ok_or(CalibrationError::Timeout)?;
+    let tsc_ticks = end.wrapping_sub(start);
+    if tsc_ticks == 0 {
+        return Err(CalibrationError::ZeroDelta);
+    }
+
+    Ok(CalibrationSample {
+        tsc_ticks,
+        pit_ticks: count as u32,
+    })
 }
 
 /// Convert a batch of TSC/PIT intervals into a median frequency estimate.
@@ -135,7 +184,9 @@ mod tests {
         let result = calibrate(&samples, 2_000).unwrap();
         assert_eq!(result.samples_used, 3);
         assert_eq!(result.frequency.denominator(), 1);
-        assert!((2_399_000_000..=2_403_000_000).contains(&result.frequency.numerator_hz()));
+        assert!(
+            (2_399_000_000..=2_403_000_000).contains(&result.frequency.numerator_hz())
+        );
     }
 
     #[test]
