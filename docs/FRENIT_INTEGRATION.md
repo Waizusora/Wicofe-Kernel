@@ -58,7 +58,7 @@ Until these gates pass, the current kernel boot path remains in its existing dia
 
 ## 6. Next kernel milestones
 
-1. Complete the interrupt and timer runtime validation without enabling production-wide interrupts.
+1. Extend the PIT-backed monotonic timebase into a documented clock interface; keep global interrupt enabling explicit.
 2. Establish the kernel scheduler and single-process execution substrate.
 3. Define and implement process creation, executable loading, exit and wait/reap against Wicofe-ABI.
 4. Implement signal delivery and child-exit notification semantics.
