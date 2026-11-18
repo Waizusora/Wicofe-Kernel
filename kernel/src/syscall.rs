@@ -6,6 +6,45 @@
 
 use core::num::NonZeroU32;
 
+/// Architecture-neutral request passed from an entry adapter to the dispatcher.
+///
+/// Architecture code is responsible for decoding the syscall number and six
+/// argument registers into this structure. The numeric syscall namespace is
+/// intentionally not assigned by this kernel module.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct SyscallRequest {
+    /// ABI-defined syscall number. Values are not yet allocated.
+    pub number: usize,
+    /// Arguments in ABI order, independent of the source CPU registers.
+    pub arguments: [usize; 6],
+}
+
+impl SyscallRequest {
+    /// Construct a request after architecture-specific register decoding.
+    pub const fn new(number: usize, arguments: [usize; 6]) -> Self {
+        Self { number, arguments }
+    }
+}
+
+/// Kernel policy implementation for a syscall namespace.
+///
+/// Implementations must validate user pointers and lengths before access,
+/// must not retain borrowed user addresses beyond the operation, and must
+/// return a positive Wicofe errno for failures. This trait does not define
+/// syscall numbers or authorize user memory access by itself.
+pub trait SyscallDispatcher {
+    /// Dispatch one decoded request.
+    fn dispatch(&mut self, request: SyscallRequest) -> SyscallOutcome;
+}
+
+/// Dispatch a request and encode its architecture-neutral return value.
+pub fn dispatch_request(
+    dispatcher: &mut impl SyscallDispatcher,
+    request: SyscallRequest,
+) -> SyscallReturn {
+    SyscallReturn::from_outcome(dispatcher.dispatch(request))
+}
+
 /// Logical outcome of a dispatched syscall.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SyscallOutcome {
