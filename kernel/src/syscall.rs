@@ -96,17 +96,61 @@ impl SyscallReturn {
 
 #[cfg(test)]
 mod tests {
-    use super::{SyscallOutcome, SyscallReturn};
+    use super::{
+        dispatch_request, SyscallDispatcher, SyscallOutcome, SyscallRequest, SyscallReturn,
+    };
     use core::num::NonZeroU32;
+
+    struct TestDispatcher;
+
+    impl SyscallDispatcher for TestDispatcher {
+        fn dispatch(&mut self, request: SyscallRequest) -> SyscallOutcome {
+            assert_eq!(request.number, 7);
+            assert_eq!(request.arguments, [1, 2, 3, 4, 5, 6]);
+            SyscallOutcome::Success(42)
+        }
+    }
+
+    #[test]
+    fn request_preserves_number_and_all_six_arguments() {
+        let request = SyscallRequest::new(7, [1, 2, 3, 4, 5, 6]);
+        assert_eq!(request.number, 7);
+        assert_eq!(request.arguments, [1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn dispatch_request_encodes_success() {
+        let mut dispatcher = TestDispatcher;
+        let request = SyscallRequest::new(7, [1, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            dispatch_request(&mut dispatcher, request),
+            SyscallReturn { value: 42, carry: false }
+        );
+    }
+
+    struct ErrorDispatcher;
+
+    impl SyscallDispatcher for ErrorDispatcher {
+        fn dispatch(&mut self, _request: SyscallRequest) -> SyscallOutcome {
+            SyscallOutcome::Error(NonZeroU32::new(38).expect("non-zero errno"))
+        }
+    }
+
+    #[test]
+    fn dispatch_request_encodes_errno_as_positive_carry_error() {
+        let mut dispatcher = ErrorDispatcher;
+        let request = SyscallRequest::new(999, [0; 6]);
+        assert_eq!(
+            dispatch_request(&mut dispatcher, request),
+            SyscallReturn { value: 38, carry: true }
+        );
+    }
 
     #[test]
     fn zero_success_clears_carry() {
         assert_eq!(
             SyscallReturn::from_outcome(SyscallOutcome::Success(0)),
-            SyscallReturn {
-                value: 0,
-                carry: false,
-            }
+            SyscallReturn { value: 0, carry: false }
         );
     }
 
