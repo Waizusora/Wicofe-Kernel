@@ -668,6 +668,107 @@ mod tests {
     }
 
     #[test]
+    fn driver_registry_rejects_duplicate_and_invalid_descriptors() {
+        let descriptor = DriverDescriptor {
+            id: DriverId::new(1),
+            name: "test-gpu",
+            match_rule: pci_gpu_rule(0x8086, 0x1234),
+        };
+        let mut drivers = DriverRegistry::<1>::new();
+
+        assert_eq!(drivers.register(descriptor), Ok(()));
+        assert_eq!(
+            drivers.register(descriptor),
+            Err(DriverRegistryError::DuplicateDriver(descriptor.id))
+        );
+
+        let invalid = DriverDescriptor {
+            id: DriverId::new(2),
+            name: "catch-all",
+            match_rule: DriverMatch {
+                bus: Some(BusType::Pci),
+                vendor_id: None,
+                device_id: None,
+                class_code: None,
+                subclass: None,
+                programming_interface: None,
+                revision: None,
+            },
+        };
+        let mut empty = DriverRegistry::<1>::new();
+        assert_eq!(
+            empty.register(invalid),
+            Err(DriverRegistryError::InvalidMatchRule(invalid.id))
+        );
+    }
+
+    #[test]
+    fn driver_manager_selects_and_binds_first_matching_driver() {
+        let mut drivers = DriverRegistry::<2>::new();
+        let first = DriverDescriptor {
+            id: DriverId::new(10),
+            name: "intel-gpu",
+            match_rule: pci_gpu_rule(0x8086, 0x1234),
+        };
+        let second = DriverDescriptor {
+            id: DriverId::new(11),
+            name: "amd-gpu",
+            match_rule: pci_gpu_rule(0x1002, 0x5678),
+        };
+        drivers.register(first).unwrap();
+        drivers.register(second).unwrap();
+
+        let mut devices = DeviceRegistry::<1>::new();
+        let device = DeviceId::new(42);
+        devices
+            .register(device, pci_identity(0x8086, 0x1234))
+            .unwrap();
+
+        assert_eq!(drivers.bind_device(&mut devices, device), Ok(first.id));
+        let record = devices.get(device).unwrap();
+        assert_eq!(record.driver, Some(first.id));
+        assert_eq!(record.state, DeviceState::Matched);
+        assert_eq!(
+            drivers.bind_device(&mut devices, device),
+            Err(DriverManagerError::Bind(
+                DeviceBindError::DeviceAlreadyBound(device)
+            ))
+        );
+    }
+
+    #[test]
+    fn driver_manager_reports_missing_device_and_unmatched_identity() {
+        let mut drivers = DriverRegistry::<1>::new();
+        drivers
+            .register(DriverDescriptor {
+                id: DriverId::new(1),
+                name: "intel-gpu",
+                match_rule: pci_gpu_rule(0x8086, 0x1234),
+            })
+            .unwrap();
+
+        let mut devices = DeviceRegistry::<1>::new();
+        let device = DeviceId::new(9);
+        assert_eq!(
+            drivers.bind_device(&mut devices, device),
+            Err(DriverManagerError::DeviceNotFound(device))
+        );
+
+        devices
+            .register(device, pci_identity(0x1002, 0x5678))
+            .unwrap();
+        assert_eq!(
+            drivers.bind_device(&mut devices, device),
+            Err(DriverManagerError::NoMatchingDriver(device))
+        );
+        assert_eq!(
+            devices.get(device).unwrap().state,
+            DeviceState::Discovered
+        );
+        assert_eq!(devices.get(device).unwrap().driver, None);
+    }
+
+    #[test]
     fn registry_registers_and_looks_up_devices() {
         let mut registry = DeviceRegistry::<2>::new();
         let id = DeviceId::new(10);
