@@ -26,6 +26,10 @@
 - Input clock is 1,193,182 Hz; the driver rejects zero frequencies and divisors outside the 16-bit counter range.
 - PIT programming does not register a handler, unmask IRQ0, or enable CPU interrupts.
 
+## Tick accounting
+
+`timer::initialize_pit(hz)` installs the kernel-owned IRQ0 callback, programs PIT channel 0, records the integer actual frequency, and unmasks IRQ0. It does not execute `STI`; the caller remains responsible for enabling CPU interrupts only after all dependent kernel state is ready. `timer::ticks()`, `timer::frequency_hz()`, and `timer::uptime_millis()` expose the monotonic tick count and derived time after initialization. This is a single-CPU early timebase foundation, not yet a scheduler clock, wall clock, or SMP time source.
+
 ## QEMU validation
 
 The `irq-smoke-pit` build-only feature registers an IRQ0 callback, programs the PIT at 100 Hz, verifies the PIC mask and IF state, unmasks IRQ0, and waits for one tick. The handler increments an atomic counter; the smoke path then disables interrupts and masks IRQ0 again.
