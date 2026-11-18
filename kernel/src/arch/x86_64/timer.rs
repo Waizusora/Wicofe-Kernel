@@ -116,6 +116,9 @@ pub fn frequency_hz() -> Option<u32> {
 
 /// Return tick-derived monotonic uptime in milliseconds, if initialized.
 pub fn uptime_millis() -> Option<u64> {
+    if !is_initialized() {
+        return None;
+    }
     ticks_to_millis(ticks(), PIT_DIVISOR.load(Ordering::Acquire))
 }
 
