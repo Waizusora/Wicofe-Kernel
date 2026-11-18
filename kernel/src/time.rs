@@ -46,9 +46,8 @@ impl ClockReading {
         if units_per_second == 0 {
             return None;
         }
-        let numerator = self.ticks as u128
-            * self.frequency_denominator as u128
-            * units_per_second as u128;
+        let numerator =
+            self.ticks as u128 * self.frequency_denominator as u128 * units_per_second as u128;
         let units = numerator / self.frequency_numerator as u128;
         Some(units.min(u64::MAX as u128) as u64)
     }
