@@ -28,7 +28,7 @@
 
 ## Tick accounting
 
-`timer::initialize_pit(hz)` installs the kernel-owned IRQ0 callback, programs PIT channel 0, stores the exact divisor, and unmasks IRQ0. It does not execute `STI`; the caller remains responsible for enabling CPU interrupts only after all dependent kernel state is ready. `timer::ticks()`, `timer::frequency_hz()`, and `timer::uptime_millis()` expose the monotonic tick count, integer display frequency, and divisor-derived elapsed milliseconds after initialization. The conversion uses the exact PIT input clock/divisor rather than a rounded frequency. This is a single-CPU early timebase foundation, not yet a scheduler clock, wall clock, or SMP time source.
+`timer::initialize_pit(hz)` installs the kernel-owned IRQ0 callback, programs PIT channel 0, stores the exact divisor, and unmasks IRQ0. It does not execute `STI`; the caller remains responsible for enabling CPU interrupts only after all dependent kernel state is ready. `timer::ticks()`, `timer::frequency_hz()`, `timer::uptime_millis()`, `timer::uptime_micros()`, and `timer::uptime_nanos()` expose the monotonic tick count, integer display frequency, and divisor-derived elapsed time at millisecond, microsecond, and nanosecond scales after initialization. Sub-millisecond values are quantized to the PIT IRQ period; nanosecond output is a unit conversion, not nanosecond hardware resolution. Conversions use saturating `u64` output and the exact PIT input clock/divisor. The conversion uses the exact PIT input clock/divisor rather than a rounded frequency. This is a single-CPU early timebase foundation, not yet a scheduler clock, wall clock, or SMP time source.
 
 ## QEMU validation
 
