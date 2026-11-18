@@ -2,7 +2,7 @@
 
 - **Document:** BOOT_SPEC.md
 - **Version:** 1.8
-- **Status:** x86-64 BIOS Limine boot and PMM runtime smoke test validated in QEMU
+- **Status:** x86-64 BIOS Limine boot, PMM runtime smoke test, and legacy PIC/PIT IRQ0 path validated in QEMU
 - **Targets:** x86-64 and AArch64
 - **Bootloader:** Limine
 - **Kernel language:** Rust `no_std`
