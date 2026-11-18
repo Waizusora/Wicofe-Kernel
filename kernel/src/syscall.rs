@@ -97,7 +97,7 @@ impl SyscallReturn {
 #[cfg(test)]
 mod tests {
     use super::{
-        dispatch_request, SyscallDispatcher, SyscallOutcome, SyscallRequest, SyscallReturn,
+        SyscallDispatcher, SyscallOutcome, SyscallRequest, SyscallReturn, dispatch_request,
     };
     use core::num::NonZeroU32;
 
@@ -124,7 +124,10 @@ mod tests {
         let request = SyscallRequest::new(7, [1, 2, 3, 4, 5, 6]);
         assert_eq!(
             dispatch_request(&mut dispatcher, request),
-            SyscallReturn { value: 42, carry: false }
+            SyscallReturn {
+                value: 42,
+                carry: false
+            }
         );
     }
 
@@ -142,7 +145,10 @@ mod tests {
         let request = SyscallRequest::new(999, [0; 6]);
         assert_eq!(
             dispatch_request(&mut dispatcher, request),
-            SyscallReturn { value: 36, carry: true }
+            SyscallReturn {
+                value: 36,
+                carry: true
+            }
         );
     }
 
@@ -150,7 +156,10 @@ mod tests {
     fn zero_success_clears_carry() {
         assert_eq!(
             SyscallReturn::from_outcome(SyscallOutcome::Success(0)),
-            SyscallReturn { value: 0, carry: false }
+            SyscallReturn {
+                value: 0,
+                carry: false
+            }
         );
     }
 
