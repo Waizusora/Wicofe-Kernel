@@ -52,6 +52,7 @@ Start at [docs/INDEX.md](docs/INDEX.md). Canonical kernel documents include:
 - [Boot specification](docs/BOOT_SPEC.md)
 - [Memory management specification](docs/MEMORY_MANAGEMENT_SPEC.md)
 - [DKM specification](docs/DKM_SPEC.md)
+- [Native Driver Framework (WDF)](docs/DRIVER_FRAMEWORK_SPEC.md)
 - [VFS and filesystem specification](docs/FILESYSTEM_SPEC.md)
 - [Kernel ABI boundaries](docs/ABI_BOUNDARIES.md)
 - [x86-64 kernel image build](docs/X86_64_KERNEL_IMAGE.md)
