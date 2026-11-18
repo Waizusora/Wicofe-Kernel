@@ -70,7 +70,10 @@ pub fn program_channel2_oneshot_with_io<I: PitChannel2Io>(
 
     let previous_control = io.read_u8(SPEAKER_CONTROL);
     // Disable speaker output and set channel 2 gate high, preserving other bits.
-    io.write_u8(SPEAKER_CONTROL, (previous_control & !SPEAKER_ENABLE) | CHANNEL2_GATE);
+    io.write_u8(
+        SPEAKER_CONTROL,
+        (previous_control & !SPEAKER_ENABLE) | CHANNEL2_GATE,
+    );
     io.write_u8(COMMAND, CHANNEL2_ONESHOT);
     io.write_u8(CHANNEL2_DATA, count as u8);
     io.write_u8(CHANNEL2_DATA, (count >> 8) as u8);
@@ -155,7 +158,11 @@ mod tests {
 
     impl PitChannel2Io for MockPit {
         fn read_u8(&mut self, port: u16) -> u8 {
-            let value = if port == SPEAKER_CONTROL { self.control } else { 0 };
+            let value = if port == SPEAKER_CONTROL {
+                self.control
+            } else {
+                0
+            };
             self.reads.push((port, value));
             value
         }
@@ -193,15 +200,21 @@ mod tests {
 
     #[test]
     fn channel2_oneshot_preserves_and_restores_speaker_control() {
-        let mut pit = MockPit { control: 0b1100_0010, ..MockPit::default() };
+        let mut pit = MockPit {
+            control: 0b1100_0010,
+            ..MockPit::default()
+        };
         let previous = program_channel2_oneshot_with_io(&mut pit, 0x1234).unwrap();
         assert_eq!(previous, 0b1100_0010);
-        assert_eq!(pit.writes, [
-            (SPEAKER_CONTROL, 0b1100_0001),
-            (COMMAND, CHANNEL2_ONESHOT),
-            (CHANNEL2_DATA, 0x34),
-            (CHANNEL2_DATA, 0x12),
-        ]);
+        assert_eq!(
+            pit.writes,
+            [
+                (SPEAKER_CONTROL, 0b1100_0001),
+                (COMMAND, CHANNEL2_ONESHOT),
+                (CHANNEL2_DATA, 0x34),
+                (CHANNEL2_DATA, 0x12),
+            ]
+        );
         assert!(!channel2_oneshot_expired_with_io(&mut pit));
         pit.control |= CHANNEL2_OUTPUT;
         assert!(channel2_oneshot_expired_with_io(&mut pit));
@@ -212,9 +225,11 @@ mod tests {
     #[test]
     fn channel2_oneshot_rejects_zero_count_without_io() {
         let mut pit = MockPit::default();
-        assert_eq!(program_channel2_oneshot_with_io(&mut pit, 0), Err(PitError::ZeroCount));
+        assert_eq!(
+            program_channel2_oneshot_with_io(&mut pit, 0),
+            Err(PitError::ZeroCount)
+        );
         assert!(pit.writes.is_empty());
         assert!(pit.reads.is_empty());
     }
-
 }
