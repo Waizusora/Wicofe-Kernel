@@ -84,7 +84,7 @@ Kernel releases must publish the userspace ABI version/capability set and DKM AB
 
 Every interface must define stable error semantics. Do not expose Rust `Result`, panic payloads, or enum discriminants as ABI values.
 
-A syscall failure must be distinguishable from a valid return value according to the adopted carry-flag convention. The exact errno namespace and per-call mappings are owned by Wicofe-ABI.
+A syscall failure must be distinguishable from a valid return value according to the adopted carry-flag convention. The canonical initial errno namespace is [defined by Wicofe-ABI](https://github.com/Waizusora/Wicofe-ABI/blob/main/docs/ERRNO_NAMESPACE_0.1.md); per-call mappings remain specified individually. The kernel must preserve the registers listed in the [register preservation contract](https://github.com/Waizusora/Wicofe-ABI/blob/main/docs/SYSCALL_REGISTER_PRESERVATION_0.1.md).
 
 A DKM load failure must leave no partially published module, dangling callback, leaked registration, or unresolved dependency. Failure to prove safe unload means the module remains loaded.
 
