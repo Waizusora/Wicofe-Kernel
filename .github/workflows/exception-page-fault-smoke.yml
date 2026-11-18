@@ -2,7 +2,7 @@ name: x86-64 page fault smoke test
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
     branches: [main]
   workflow_dispatch:
