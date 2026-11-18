@@ -223,6 +223,7 @@ pub fn transition(state: &mut DeviceState, next: DeviceState) -> Result<(), Life
             | (Running, Stopped)
             | (Stopped, Running)
             | (Stopped, Removed)
+            | (Discovered, Removed)
             | (Discovered, Failed)
             | (Matched, Failed)
             | (Probed, Failed)
