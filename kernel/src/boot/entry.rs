@@ -207,30 +207,13 @@ fn verify_pmm_alloc_free(pmm: &mut Pmm<'_>) -> bool {
 }
 
 #[cfg(feature = "irq-smoke-pit")]
-static IRQ_SMOKE_TICKS: core::sync::atomic::AtomicUsize = core::sync::atomic::AtomicUsize::new(0);
-
-#[cfg(feature = "irq-smoke-pit")]
-extern "C" fn irq_smoke_pit_handler(_: &mut crate::arch::x86_64::irq::IrqStackFrame) {
-    IRQ_SMOKE_TICKS.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
-}
-
-#[cfg(feature = "irq-smoke-pit")]
 fn verify_irq_dispatch_with_pit() -> bool {
-    use core::sync::atomic::Ordering;
-
-    if crate::arch::x86_64::irq::register_handler(0, irq_smoke_pit_handler).is_err() {
+    // SAFETY: Bootstrap runs at ring 0 with IF clear; IDT/PIC are initialized.
+    if unsafe { crate::arch::x86_64::timer::initialize_pit(100) }.is_err() {
         return false;
     }
     early_serial_write_str("WICOFE: IRQ_PIT_HANDLER_READY\n");
-    // SAFETY: Bootstrap runs at ring 0 with IF clear and owns PIT programming.
-    if unsafe { crate::arch::x86_64::pit::initialize_periodic(100) }.is_err() {
-        return false;
-    }
     early_serial_write_str("WICOFE: IRQ_PIT_PROGRAMMED\n");
-    // SAFETY: IRQ0 handler is installed, IDT is loaded, and IF remains clear.
-    if unsafe { crate::arch::x86_64::irq::unmask(0) }.is_err() {
-        return false;
-    }
     early_serial_write_str("WICOFE: IRQ_PIT_UNMASKED\n");
     // SAFETY: IF is still clear and bootstrap owns the legacy PIC.
     let masks = unsafe { crate::arch::x86_64::pic::read_masks() };
@@ -238,12 +221,11 @@ fn verify_irq_dispatch_with_pit() -> bool {
         return false;
     }
 
-    // STI is confined to this build-only smoke test. A bounded polling loop
-    // makes a missing IRQ produce a deterministic failure marker.
     early_serial_write_str("WICOFE: IRQ_PIT_WAITING\n");
+    // STI is confined to this build-only smoke test.
     unsafe { core::arch::asm!("sti", options(nostack)) };
     let rflags: u64;
-    // SAFETY: PUSHFQ reads the current RFLAGS after STI; it does not alter them.
+    // SAFETY: PUSHFQ reads RFLAGS after STI without changing architectural state.
     unsafe {
         core::arch::asm!("pushfq; pop {}", out(reg) rflags, options(nomem, preserves_flags));
     }
@@ -251,10 +233,9 @@ fn verify_irq_dispatch_with_pit() -> bool {
         return false;
     }
     early_serial_write_str("WICOFE: IRQ_PIT_IF_ENABLED\n");
-    // HLT yields until the PIT interrupt wakes the CPU. A missing IRQ is
-    // bounded by the outer QEMU timeout instead of a CPU-speed-dependent spin.
+    // HLT yields until the PIT IRQ wakes the CPU; QEMU timeout bounds a missing IRQ.
     for _ in 0..1_000 {
-        if IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0 {
+        if crate::arch::x86_64::timer::ticks() != 0 {
             break;
         }
         unsafe { core::arch::asm!("hlt", options(nomem, nostack)) };
@@ -263,9 +244,8 @@ fn verify_irq_dispatch_with_pit() -> bool {
     unsafe { core::arch::asm!("cli", options(nostack)) };
     // SAFETY: IF is clear and bootstrap exclusively owns the PIC.
     let _ = unsafe { crate::arch::x86_64::pic::set_irq_mask(0, true) };
-    IRQ_SMOKE_TICKS.load(Ordering::Acquire) != 0
+    crate::arch::x86_64::timer::ticks() != 0
 }
-
 /// Rust entry called by the architecture-specific _start trampoline.
 ///
 /// This function must never return to Limine's invalid return address.
