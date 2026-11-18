@@ -59,8 +59,7 @@ impl ClockReading {
         }
 
         let whole_units = whole_ticks as u64 * units_per_second;
-        let fractional_units =
-            (remainder_ticks * units_per_second as u128 / rate) as u64;
+        let fractional_units = (remainder_ticks * units_per_second as u128 / rate) as u64;
         Some(whole_units.saturating_add(fractional_units))
     }
 
