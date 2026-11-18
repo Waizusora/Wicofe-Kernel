@@ -35,9 +35,11 @@ impl TscCapabilities {
     ) -> Self {
         Self {
             supported: basic_edx & CPUID_TSC != 0,
-            invariant: max_extended_leaf >= 0x8000_0007
+            invariant: basic_edx & CPUID_TSC != 0
+                && max_extended_leaf >= 0x8000_0007
                 && invariant_feature_edx & CPUID_INVARIANT_TSC != 0,
-            rdtscp: max_extended_leaf >= 0x8000_0001
+            rdtscp: basic_edx & CPUID_TSC != 0
+                && max_extended_leaf >= 0x8000_0001
                 && extended_feature_edx & CPUID_RDTSCP != 0,
         }
     }
@@ -147,7 +149,7 @@ mod tests {
             CPUID_INVARIANT_TSC,
         );
         assert!(!caps.supported);
-        assert!(caps.invariant);
-        assert!(caps.rdtscp);
+        assert!(!caps.invariant);
+        assert!(!caps.rdtscp);
     }
 }
