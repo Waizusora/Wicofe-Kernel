@@ -9,8 +9,10 @@ use core::sync::atomic::{AtomicU32, AtomicU64, AtomicU8, Ordering};
 use super::{irq, pit};
 
 const STATE_UNINITIALIZED: u8 = 0;
+#[cfg(target_os = "none")]
 const STATE_INITIALIZING: u8 = 1;
 const STATE_READY: u8 = 2;
+#[cfg(target_os = "none")]
 const STATE_FAILED: u8 = 3;
 
 static STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
