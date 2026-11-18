@@ -6,6 +6,8 @@
 //! milestone.
 
 /// Architecture identifier used by early diagnostics.
+pub mod user_context;
+
 pub const ARCH_NAME: &str = "aarch64";
 
 #[cfg(target_os = "none")]
