@@ -91,7 +91,7 @@ pub fn restore_channel2_control_with_io<I: PitChannel2Io>(io: &mut I, previous: 
 }
 
 #[cfg(target_os = "none")]
-struct X86PitIo;
+pub(super) struct X86PitIo;
 
 #[cfg(target_os = "none")]
 impl PitIo for X86PitIo {
