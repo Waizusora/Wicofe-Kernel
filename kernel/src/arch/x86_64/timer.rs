@@ -17,7 +17,7 @@ const STATE_FAILED: u8 = 3;
 
 static STATE: AtomicU8 = AtomicU8::new(STATE_UNINITIALIZED);
 static TICKS: TickCounter = TickCounter::new();
-static FREQUENCY_HZ: AtomicU32 = AtomicU32::new(0);
+static PIT_DIVISOR: AtomicU32 = AtomicU32::new(0);
 
 struct TickCounter {
     value: AtomicU64,
@@ -82,12 +82,11 @@ pub unsafe fn initialize_pit(frequency_hz: u32) -> Result<u16, TimerError> {
             return Err(TimerError::Pit(error));
         }
     };
-    let actual_frequency = pit::INPUT_FREQUENCY_HZ / programmed_divisor as u32;
-    FREQUENCY_HZ.store(actual_frequency, Ordering::Release);
+    PIT_DIVISOR.store(programmed_divisor as u32, Ordering::Release);
 
     // SAFETY: The handler is installed, the PIT is programmed, and IF is clear.
     if let Err(error) = unsafe { irq::unmask(0) } {
-        FREQUENCY_HZ.store(0, Ordering::Release);
+        PIT_DIVISOR.store(0, Ordering::Release);
         STATE.store(STATE_FAILED, Ordering::Release);
         return Err(TimerError::Irq(error));
     }
@@ -111,19 +110,21 @@ pub fn frequency_hz() -> Option<u32> {
     if !is_initialized() {
         return None;
     }
-    Some(FREQUENCY_HZ.load(Ordering::Acquire))
+    let divisor = PIT_DIVISOR.load(Ordering::Acquire);
+    Some(pit::INPUT_FREQUENCY_HZ / divisor)
 }
 
 /// Return tick-derived monotonic uptime in milliseconds, if initialized.
 pub fn uptime_millis() -> Option<u64> {
-    ticks_to_millis(ticks(), frequency_hz()?)
+    ticks_to_millis(ticks(), PIT_DIVISOR.load(Ordering::Acquire))
 }
 
-fn ticks_to_millis(ticks: u64, frequency_hz: u32) -> Option<u64> {
-    if frequency_hz == 0 {
+fn ticks_to_millis(ticks: u64, divisor: u32) -> Option<u64> {
+    if divisor == 0 {
         return None;
     }
-    let millis = (ticks as u128 * 1_000) / frequency_hz as u128;
+    let elapsed_cycles = ticks as u128 * divisor as u128;
+    let millis = (elapsed_cycles * 1_000) / super::pit::INPUT_FREQUENCY_HZ as u128;
     Some(millis.min(u64::MAX as u128) as u64)
 }
 
@@ -142,10 +143,10 @@ mod tests {
 
     #[test]
     fn converts_ticks_to_milliseconds_without_float_math() {
-        assert_eq!(ticks_to_millis(0, 100), Some(0));
-        assert_eq!(ticks_to_millis(1, 100), Some(10));
-        assert_eq!(ticks_to_millis(125, 100), Some(1_250));
-        assert_eq!(ticks_to_millis(u64::MAX, 1), Some(u64::MAX));
+        assert_eq!(ticks_to_millis(0, 11_931), Some(0));
+        assert_eq!(ticks_to_millis(1, 11_931), Some(9));
+        assert_eq!(ticks_to_millis(100, 11_931), Some(999));
+        assert_eq!(ticks_to_millis(u64::MAX, u16::MAX as u32), Some(u64::MAX));
     }
 
     #[test]
