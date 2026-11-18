@@ -135,14 +135,24 @@ impl DriverMatch {
     pub fn matches(self, identity: DeviceIdentity) -> bool {
         self.is_specific()
             && self.bus.is_none_or(|value| value == identity.bus)
-            && self.vendor_id.is_none_or(|value| Some(value) == identity.vendor_id)
-            && self.device_id.is_none_or(|value| Some(value) == identity.device_id)
-            && self.class_code.is_none_or(|value| Some(value) == identity.class_code)
-            && self.subclass.is_none_or(|value| Some(value) == identity.subclass)
+            && self
+                .vendor_id
+                .is_none_or(|value| Some(value) == identity.vendor_id)
+            && self
+                .device_id
+                .is_none_or(|value| Some(value) == identity.device_id)
+            && self
+                .class_code
+                .is_none_or(|value| Some(value) == identity.class_code)
+            && self
+                .subclass
+                .is_none_or(|value| Some(value) == identity.subclass)
             && self
                 .programming_interface
                 .is_none_or(|value| Some(value) == identity.programming_interface)
-            && self.revision.is_none_or(|value| Some(value) == identity.revision)
+            && self
+                .revision
+                .is_none_or(|value| Some(value) == identity.revision)
     }
 }
 
@@ -201,10 +211,7 @@ pub enum LifecycleError {
 ///
 /// This function only updates the caller-owned state value. It does not call
 /// driver callbacks or acquire/release hardware resources.
-pub fn transition(
-    state: &mut DeviceState,
-    next: DeviceState,
-) -> Result<(), LifecycleError> {
+pub fn transition(state: &mut DeviceState, next: DeviceState) -> Result<(), LifecycleError> {
     use DeviceState::*;
 
     let valid = matches!(
@@ -339,10 +346,11 @@ impl<const N: usize> DeviceRegistry<N> {
             .iter_mut()
             .flatten()
             .find(|record| record.id == id)
-            .ok_or(RegistryErrorOrLifecycle::Registry(RegistryError::NotFound(id)))?;
+            .ok_or(RegistryErrorOrLifecycle::Registry(RegistryError::NotFound(
+                id,
+            )))?;
 
-        transition(&mut record.state, next)
-            .map_err(RegistryErrorOrLifecycle::Lifecycle)
+        transition(&mut record.state, next).map_err(RegistryErrorOrLifecycle::Lifecycle)
     }
 
     /// Discard a device record only after it has reached Removed.
@@ -541,9 +549,7 @@ mod tests {
     fn registry_requires_removed_state_before_unregister() {
         let mut registry = DeviceRegistry::<1>::new();
         let id = DeviceId::new(7);
-        registry
-            .register(id, pci_identity(0x8086, 0x1234))
-            .unwrap();
+        registry.register(id, pci_identity(0x8086, 0x1234)).unwrap();
 
         assert_eq!(
             registry.unregister(id),
