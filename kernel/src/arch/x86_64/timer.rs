@@ -27,14 +27,18 @@ pub struct PitClockSource;
 
 impl ClockSource for PitClockSource {
     fn read(&self) -> Option<ClockReading> {
-        if !is_initialized() { return None; }
+        if !is_initialized() {
+            return None;
+        }
         let divisor = PIT_DIVISOR.load(Ordering::Acquire) as u64;
         ClockReading::new(ticks(), super::pit::INPUT_FREQUENCY_HZ as u64, divisor)
     }
 }
 
 /// Return the PIT backend as a clock source without selecting it globally.
-pub const fn pit_clock_source() -> PitClockSource { PitClockSource }
+pub const fn pit_clock_source() -> PitClockSource {
+    PitClockSource
+}
 
 struct TickCounter {
     value: AtomicU64,
