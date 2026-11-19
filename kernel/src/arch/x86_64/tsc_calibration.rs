@@ -89,7 +89,6 @@ where
     })
 }
 
-
 /// Calibrate the local processor's TSC using repeated PIT channel-2 intervals.
 ///
 /// # Safety
