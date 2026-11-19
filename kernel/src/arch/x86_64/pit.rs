@@ -79,8 +79,10 @@ where
         (previous_control & !SPEAKER_ENABLE) | CHANNEL2_GATE,
     );
     io.write_u8(COMMAND, CHANNEL2_ONESHOT);
-    let start = sample_start();
     io.write_u8(CHANNEL2_DATA, count as u8);
+    // The counter starts when the high byte is written; sample immediately
+    // before that final write to minimize systematic interval bias.
+    let start = sample_start();
     io.write_u8(CHANNEL2_DATA, (count >> 8) as u8);
     Ok((previous_control, start))
 }
