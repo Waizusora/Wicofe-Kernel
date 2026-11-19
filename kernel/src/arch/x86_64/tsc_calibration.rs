@@ -130,6 +130,32 @@ pub unsafe fn calibrate_hardware(
     calibrate(&samples[..sample_count], max_spread_ppm)
 }
 
+/// Compare a measured TSC frequency against the CPUID nominal frequency.
+///
+/// The result is the absolute deviation in parts per million relative to the
+/// nominal frequency. This is diagnostic only: it does not promote the TSC to
+/// a clock source. Returns an arithmetic error if the exact rational
+/// comparison cannot be represented safely.
+pub fn compare_nominal_frequency(
+    nominal: TscFrequency,
+    measured: TscFrequency,
+) -> Result<u32, CalibrationError> {
+    let nominal_scaled = (nominal.numerator_hz() as u128)
+        .checked_mul(measured.denominator() as u128)
+        .ok_or(CalibrationError::ArithmeticOverflow)?;
+    let measured_scaled = (measured.numerator_hz() as u128)
+        .checked_mul(nominal.denominator() as u128)
+        .ok_or(CalibrationError::ArithmeticOverflow)?;
+    let difference = nominal_scaled.abs_diff(measured_scaled);
+    let deviation = difference
+        .checked_mul(PPM_SCALE)
+        .ok_or(CalibrationError::ArithmeticOverflow)?;
+    let ppm = deviation
+        .checked_div(nominal_scaled)
+        .ok_or(CalibrationError::ZeroDelta)?;
+    u32::try_from(ppm).map_err(|_| CalibrationError::ArithmeticOverflow)
+}
+
 /// Convert a batch of TSC/PIT intervals into a median frequency estimate.
 ///
 /// Each sample is converted using the PIT input frequency. The median limits
@@ -302,6 +328,26 @@ mod tests {
     }
 
     #[test]
+    #[test]
+    fn compares_pit_measurement_to_cpuid_nominal_frequency() {
+        let nominal = TscFrequency::new(2_400_000_000, 1).unwrap();
+        let measured = TscFrequency::new(2_402_400_000, 1).unwrap();
+        assert_eq!(compare_nominal_frequency(nominal, measured), Ok(1_000));
+
+        let exact_ratio = TscFrequency::new(4_800_000_000, 2).unwrap();
+        assert_eq!(compare_nominal_frequency(nominal, exact_ratio), Ok(0));
+    }
+
+    #[test]
+    fn rejects_unrepresentable_frequency_comparison() {
+        let nominal = TscFrequency::new(1, u64::MAX).unwrap();
+        let measured = TscFrequency::new(u64::MAX, 1).unwrap();
+        assert_eq!(
+            compare_nominal_frequency(nominal, measured),
+            Err(CalibrationError::ArithmeticOverflow)
+        );
+    }
+
     fn computes_median_frequency_from_three_samples() {
         let samples = [
             sample_for_hz(2_400_000_000),
