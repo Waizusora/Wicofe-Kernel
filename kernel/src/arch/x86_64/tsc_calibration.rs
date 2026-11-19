@@ -5,7 +5,7 @@
 
 use super::pit::{
     INPUT_FREQUENCY_HZ, PitChannel2Io, PitError, channel2_oneshot_expired_with_io,
-    program_channel2_oneshot_with_io, restore_channel2_control_with_io,
+    program_channel2_oneshot_with_sample, restore_channel2_control_with_io,
 };
 use super::tsc::TscFrequency;
 
@@ -63,8 +63,8 @@ where
         return Err(CalibrationError::ZeroPollBudget);
     }
 
-    let previous = program_channel2_oneshot_with_io(io, count).map_err(CalibrationError::Pit)?;
-    let start = read_tsc();
+    let (previous, start) = program_channel2_oneshot_with_sample(io, count, &mut read_tsc)
+        .map_err(CalibrationError::Pit)?;
     let mut completed = false;
 
     for _ in 0..max_polls {
