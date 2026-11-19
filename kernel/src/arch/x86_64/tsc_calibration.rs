@@ -279,7 +279,8 @@ mod tests {
             measure_sample_with_io(&mut pit, 10_000, 3, || 100),
             Err(CalibrationError::Timeout)
         );
-        assert_eq!(pit.polls, 3);
+        // One initial control-byte snapshot plus exactly three bounded polls.
+        assert_eq!(pit.polls, 4);
         assert_eq!(pit.control, 0b0100_0010);
         assert_eq!(pit.writes.last(), Some(&(0x61, 0b0100_0010)));
     }
