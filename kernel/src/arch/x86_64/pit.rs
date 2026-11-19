@@ -54,16 +54,20 @@ pub fn program_periodic_with_io<I: PitIo>(io: &mut I, frequency_hz: u32) -> Resu
     Ok(divisor)
 }
 
-/// Configure channel 2 as a one-shot down-counter and return the prior
-/// speaker-control byte so the caller can restore platform state afterwards.
+/// Configure channel 2 as a one-shot down-counter and sample a counter
+/// immediately before the PIT count bytes start the interval.
 ///
-/// Take the starting TSC sample immediately before loading the count bytes,
-/// then poll channel 2 for completion. This primitive does not calibrate TSC
-/// and does not impose a polling timeout.
-pub fn program_channel2_oneshot_with_io<I: PitChannel2Io>(
+/// The callback runs after the mode command and immediately before the low
+/// count byte. The PIT begins counting when the high byte is written.
+pub fn program_channel2_oneshot_with_sample<I, F>(
     io: &mut I,
     count: u16,
-) -> Result<u8, PitError> {
+    sample_start: F,
+) -> Result<(u8, u64), PitError>
+where
+    I: PitChannel2Io,
+    F: FnOnce() -> u64,
+{
     if count == 0 {
         return Err(PitError::ZeroCount);
     }
@@ -75,9 +79,18 @@ pub fn program_channel2_oneshot_with_io<I: PitChannel2Io>(
         (previous_control & !SPEAKER_ENABLE) | CHANNEL2_GATE,
     );
     io.write_u8(COMMAND, CHANNEL2_ONESHOT);
+    let start = sample_start();
     io.write_u8(CHANNEL2_DATA, count as u8);
     io.write_u8(CHANNEL2_DATA, (count >> 8) as u8);
-    Ok(previous_control)
+    Ok((previous_control, start))
+}
+
+/// Configure channel 2 and return its previous speaker-control byte.
+pub fn program_channel2_oneshot_with_io<I: PitChannel2Io>(
+    io: &mut I,
+    count: u16,
+) -> Result<u8, PitError> {
+    program_channel2_oneshot_with_sample(io, count, || 0).map(|(previous, _)| previous)
 }
 
 /// Return whether channel 2 has reached its one-shot terminal count.
