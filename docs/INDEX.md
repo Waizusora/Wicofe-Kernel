@@ -13,7 +13,7 @@ This directory is exclusively for Wicofe kernel architecture, implementation con
 - [Memory management](MEMORY_MANAGEMENT_SPEC.md)
 - [Boot protocol and handoff](BOOT_SPEC.md)
 - [Frenit integration boundary](FRENIT_INTEGRATION.md) — init-system ownership and native PID 1 gates
-- [Frenit integration contract 0.1](https://github.com/Waizusora/Wicofe-Specs/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md) — proposed cross-component gates; kernel syscall ABI is not implied.
+- [Frenit integration contract 0.1](https://github.com/Waizusora/Wicofe-Spec/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md) — proposed cross-component gates; kernel syscall ABI is not implied.
 - [Syscall dispatch boundary 0.1](SYSCALL_DISPATCH_BOUNDARY_0.1.md) — architecture-neutral request/dispatch interface and deferred entry gates.\n- [x86-64 IRQ, PIC, and PIT](X86_64_IRQ_PIC_PIT.md) — returning IRQ path and masked timer smoke-test boundary.
 - [x86-64 kernel image and boot validation](X86_64_KERNEL_IMAGE.md)
 - [Limine QEMU boot procedure](LIMINE_QEMU_BOOT.md)
@@ -22,7 +22,7 @@ This directory is exclusively for Wicofe kernel architecture, implementation con
 
 Kernel-owned topics include CPU architecture support, boot handoff, interrupts and exceptions, physical/virtual memory, scheduling and process primitives, syscall dispatch implementation, VFS internals, block I/O, driver lifecycle, and the privileged DKM ABI.
 
-The userspace syscall contract is owned by [Wicofe-ABI](https://github.com/Waizusora/Wicofe-ABI). The ONWFS disk format is owned by [ONWFS](https://github.com/Waizusora/ONWFS). Cross-repository contracts are coordinated by [Wicofe-Specs](https://github.com/Waizusora/Wicofe-Specs).
+The userspace syscall contract is owned by [Wicofe-ABI](https://github.com/Waizusora/Wicofe-ABI). The ONWFS disk format is owned by [ONWFS](https://github.com/Waizusora/ONWFS). Cross-repository contracts are coordinated by [Wicofe-Spec](https://github.com/Waizusora/Wicofe-Spec).
 
 ## Status rules
 
@@ -30,5 +30,5 @@ Every document must distinguish implemented, compiled, emulator-tested, hardware
 
 ## Related documentation
 
-- [Central Wicofe documentation index](https://github.com/Waizusora/Wicofe-Docs/blob/main/INDEX.md)
-- [Repository documentation map](https://github.com/Waizusora/Wicofe-Docs/blob/main/REPOSITORY_DOCUMENTATION_MAP.md)
+- [Central Wicofe documentation index](https://github.com/Waizusora/Wicofe-Doc/blob/main/INDEX.md)
+- [Repository documentation map](https://github.com/Waizusora/Wicofe-Doc/blob/main/REPOSITORY_DOCUMENTATION_MAP.md)
