@@ -42,6 +42,7 @@ pub enum CalibrationError {
     Timeout,
     Pit(PitError),
     TscUnsupported,
+    NominalFrequencyMismatch,
 }
 
 /// Measure one PIT channel-2 interval with a strictly bounded polling loop.
@@ -154,6 +155,22 @@ pub fn compare_nominal_frequency(
         .checked_div(nominal_scaled)
         .ok_or(CalibrationError::ZeroDelta)?;
     u32::try_from(ppm).map_err(|_| CalibrationError::ArithmeticOverflow)
+}
+
+/// Validate a measured frequency against the CPUID nominal frequency.
+///
+/// Returns the absolute deviation in ppm when it is within the caller's
+/// tolerance. The comparison is diagnostic and does not select a clock source.
+pub fn validate_nominal_frequency(
+    nominal: TscFrequency,
+    measured: TscFrequency,
+    max_deviation_ppm: u32,
+) -> Result<u32, CalibrationError> {
+    let deviation = compare_nominal_frequency(nominal, measured)?;
+    if deviation > max_deviation_ppm {
+        return Err(CalibrationError::NominalFrequencyMismatch);
+    }
+    Ok(deviation)
 }
 
 /// Convert a batch of TSC/PIT intervals into a median frequency estimate.
@@ -329,6 +346,21 @@ mod tests {
 
     #[test]
     #[test]
+    #[test]
+    fn validates_nominal_frequency_with_inclusive_tolerance() {
+        let nominal = TscFrequency::new(2_400_000_000, 1).unwrap();
+        let measured = TscFrequency::new(2_402_400_000, 1).unwrap();
+        assert_eq!(
+            validate_nominal_frequency(nominal, measured, 1_000),
+            Ok(1_000)
+        );
+        assert_eq!(
+            validate_nominal_frequency(nominal, measured, 999),
+            Err(CalibrationError::NominalFrequencyMismatch)
+        );
+        assert_eq!(validate_nominal_frequency(nominal, nominal, 0), Ok(0));
+    }
+
     fn compares_pit_measurement_to_cpuid_nominal_frequency() {
         let nominal = TscFrequency::new(2_400_000_000, 1).unwrap();
         let measured = TscFrequency::new(2_402_400_000, 1).unwrap();
