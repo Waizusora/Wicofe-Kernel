@@ -61,4 +61,4 @@ AArch64 currently has target compilation coverage only. Final ELF validation and
 4. Implement heap, threads, scheduler, process/address-space, and syscall support in dependency order.
 5. Integrate native Osynit PID 1 and a CLI only after the required process and userspace contracts exist.
 
-See [Kernel documentation index](INDEX.md), [Limine QEMU boot procedure](LIMINE_QEMU_BOOT.md), and the [bootable vertical slice roadmap](https://github.com/Waizusora/Wicofe-Specs/blob/main/architecture/BOOTABLE_VERTICAL_SLICE_ROADMAP_0.1.md).
+See [Kernel documentation index](INDEX.md), [Limine QEMU boot procedure](LIMINE_QEMU_BOOT.md), and the [bootable vertical slice roadmap](https://github.com/Waizusora/Wicofe-Spec/blob/main/architecture/BOOTABLE_VERTICAL_SLICE_ROADMAP_0.1.md).
