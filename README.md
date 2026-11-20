@@ -42,7 +42,7 @@ VMM, exception handling, SMP, heap allocation, DKM loading, and filesystem imple
 
 ## Init-system integration
 
-[Frenit (Free Init)](https://github.com/Waizusora/Frenit) is the canonical Wicofe init-system and service-management project. The kernel provides the process, syscall, VFS, IPC, signal, and power-management mechanisms Frenit will consume; it does not own init policy. Native Frenit PID 1 handoff is not implemented or verified yet. See [Frenit integration boundary](docs/FRENIT_INTEGRATION.md) and the [cross-component contract](https://github.com/Waizusora/Wicofe-Specs/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md).
+[Frenit (Free Init)](https://github.com/Waizusora/Frenit) is the canonical Wicofe init-system and service-management project. The kernel provides the process, syscall, VFS, IPC, signal, and power-management mechanisms Frenit will consume; it does not own init policy. Native Frenit PID 1 handoff is not implemented or verified yet. See [Frenit integration boundary](docs/FRENIT_INTEGRATION.md) and the [cross-component contract](https://github.com/Waizusora/Wicofe-Spec/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md).
 
 ## Kernel documentation
 
@@ -56,7 +56,7 @@ Start at [docs/INDEX.md](docs/INDEX.md). Canonical kernel documents include:
 - [Kernel ABI boundaries](docs/ABI_BOUNDARIES.md)
 - [x86-64 kernel image build](docs/X86_64_KERNEL_IMAGE.md)
 
-The userspace syscall ABI is owned by [Wicofe-ABI](https://github.com/Waizusora/Wicofe-ABI). ONWFS disk layout is owned by [ONWFS](https://github.com/Waizusora/ONWFS). Cross-repository contracts are coordinated in [Wicofe-Specs](https://github.com/Waizusora/Wicofe-Specs).
+The userspace syscall ABI is owned by [Wicofe-ABI](https://github.com/Waizusora/Wicofe-ABI). ONWFS disk layout is owned by [ONWFS](https://github.com/Waizusora/ONWFS). Cross-repository contracts are coordinated in [Wicofe-Spec](https://github.com/Waizusora/Wicofe-Spec).
 
 ## Third-party licensing
 
@@ -90,4 +90,4 @@ These commands are local development entry points. Their presence does not imply
 
 ## Wicofe-wide principles
 
-Wicofe is an independent Unix-like, POSIX-compatible operating system and software ecosystem, designed as an alternative to established and widely adopted software ecosystems and technologies, including GNU. Native components must use Wicofe interfaces and must not require Linux libc or GNU compatibility layers. Prefer permissive licenses; avoid GPL/AGPL, and consider LGPL only when no suitable permissive alternative exists. Reuse or fork upstream software when implementing it from scratch would be disproportionately difficult. See the [canonical project principles](https://github.com/Waizusora/Wicofe-Docs/blob/main/PROJECT_PRINCIPLES.md).
+Wicofe is an independent Unix-like, POSIX-compatible operating system and software ecosystem, designed as an alternative to established and widely adopted software ecosystems and technologies, including GNU. Native components must use Wicofe interfaces and must not require Linux libc or GNU compatibility layers. Prefer permissive licenses; avoid GPL/AGPL, and consider LGPL only when no suitable permissive alternative exists. Reuse or fork upstream software when implementing it from scratch would be disproportionately difficult. See the [canonical project principles](https://github.com/Waizusora/Wicofe-Doc/blob/main/PROJECT_PRINCIPLES.md).
