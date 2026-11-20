@@ -2,8 +2,8 @@
 
 - **Status:** Integration contract proposed; native PID 1 handoff not implemented or verified.
 - **Canonical init project:** [Frenit — Free Init](https://github.com/Waizusora/Frenit).
-- **Cross-component contract:** [WIC-SPEC-BOOT-FRENIT-001](https://github.com/Waizusora/Wicofe-Specs/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md).
-- **Owners:** Frenit (init userspace), Wicofe-Kernel (kernel mechanisms), Wicofe-ABI (syscall ABI), Wicofe-Tests (conformance).
+- **Cross-component contract:** [WIC-SPEC-BOOT-FRENIT-001](https://github.com/Waizusora/Wicofe-Spec/blob/main/boot/FRENIT_INTEGRATION_CONTRACT_0.1.md).
+- **Owners:** Frenit (init userspace), Wicofe-Kernel (kernel mechanisms), Wicofe-ABI (syscall ABI), Wicofe-Test (conformance).
 
 ## 1. Canonical identity
 
@@ -18,8 +18,8 @@ No previous init-system proposal, executable name, service schema, socket path, 
 | Frenit | PID 1 userspace executable, service lifecycle policy, targets, configuration, CLI and service orchestration |
 | Wicofe-Kernel | Process creation/exec/exit, wait/reap, scheduling, signal delivery mechanisms, file descriptors, VFS/mount, clocks, IPC primitives, shutdown/power mechanisms |
 | Wicofe-ABI | Stable public syscall numbers, register calling convention, data structures, error model and compatibility policy |
-| Wicofe-Specs | Cross-component requirements and versioned integration contract |
-| Wicofe-Tests | Native boot, PID 1, process, signal, service and shutdown conformance tests |
+| Wicofe-Spec | Cross-component requirements and versioned integration contract |
+| Wicofe-Test | Native boot, PID 1, process, signal, service and shutdown conformance tests |
 
 Frenit must not duplicate kernel mechanisms or define private syscall numbers. Kernel code must not embed Frenit service policy.
 
@@ -50,7 +50,7 @@ Until these gates pass, the current kernel boot path remains in its existing dia
 | Capability | Implementation | Verification |
 |---|---|---|
 | Frenit identity, crate and CLI foundation | Implemented in Frenit repository | Frenit CI is authoritative |
-| Cross-repository ownership and boot gates | Proposed in Wicofe-Specs and documented here | Review required |
+| Cross-repository ownership and boot gates | Proposed in Wicofe-Spec and documented here | Review required |
 | Kernel initial userspace handoff | Not implemented | Not run |
 | Native Frenit PID 1 startup | Not implemented | Not run |
 | Native process/signal/service integration | Not implemented | Not run |
@@ -65,4 +65,4 @@ Until these gates pass, the current kernel boot path remains in its existing dia
 5. Add VFS root mount and userspace descriptor support.
 6. Implement the explicit initial-userspace handoff and only then add Frenit PID 1 QEMU tests.
 
-Every milestone must have a kernel test and, where it crosses repository boundaries, a Wicofe-Tests conformance case.
+Every milestone must have a kernel test and, where it crosses repository boundaries, a Wicofe-Test conformance case.
